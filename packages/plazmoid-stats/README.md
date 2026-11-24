@@ -18,4 +18,4 @@ A listen starts when a track plays and ends when it finishes or the source chang
 
 Reports go out every so often while playing, and on pause, when the page is hidden and when it unloads. Each one carries the total so far for its `listenId`, so keep the highest you've seen and a lost or repeated report won't matter.
 
-With `@xsynaptic/plazmoid-core`, the element is `store.getState().getMediaElement()`, which exists from the first play.
+With `@xsynaptic/plazmoid-core`, `whenMediaElement(store)` resolves with the element once the first play creates it.

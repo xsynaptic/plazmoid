@@ -1,7 +1,14 @@
 {
 	"name": "@xsynaptic/plazmoid-stats",
 	"version": "0.1.1",
-	"description": "Measures how much of a track was actually heard",
+	"description": "Measures how much of each track was actually heard, from any media element, for listen counts and analytics",
+	"keywords": [
+		"analytics",
+		"listening-stats",
+		"playback",
+		"media-element",
+		"audio"
+	],
 	"homepage": "https://github.com/xsynaptic/plazmoid#readme",
 	"bugs": {
 		"url": "https://github.com/xsynaptic/plazmoid/issues"

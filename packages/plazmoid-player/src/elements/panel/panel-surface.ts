@@ -28,6 +28,7 @@ const renderSurface = template(
 				reduced-motion="scroll"
 				spoken-step="1"
 				step="0"
+				wheel-zoom
 				zoomable
 			></sonic-waveform>
 			<p class="pzm-panel-now"></p>

@@ -7,10 +7,11 @@ import type {
 	TrackDetail,
 } from '@xsynaptic/plazmoid-core';
 import type { ViewStoreApi } from '@xsynaptic/plazmoid-player';
+import type { AstroPlayer } from '@xsynaptic/plazmoid-player/astro';
 
-import { holdPresses } from '@xsynaptic/plazmoid-core/boot';
+import { startAstroPlayer } from '@xsynaptic/plazmoid-player/astro';
+import stylesheetUrl from '@xsynaptic/plazmoid-player/player.css?url';
 import { describeWavedata } from '@xsynaptic/plazmoid-wavedata';
-import '@xsynaptic/plazmoid-player/player.css';
 
 import { fixtureOrigin, seekSeconds } from '#e2e/constants.ts';
 import { fixturePeaks } from '#e2e/fixture-peaks.ts';
@@ -187,42 +188,35 @@ function writePayload(): void {
 
 writePayload();
 
-const presses = holdPresses(document);
+startAstroPlayer(() => ({
+	load: async () => {
+		await wait(settings.bindDelay);
 
-await wait(settings.bindDelay);
+		return { onReady: exposePlayer };
+	},
+	player: { labels: defaultLabels, seekSeconds },
+	stylesheetUrl,
+	urls: () => urls,
+}));
 
-const [
-	{ bindMediaSession, bindPageControls, createPlayerStore },
-	{ createPlayer, createViewStore },
-] = await Promise.all([import('@xsynaptic/plazmoid-core'), import('@xsynaptic/plazmoid-player')]);
+function exposePlayer({ store, view }: AstroPlayer): void {
+	// The store keeps only the latest; a host sends every one, so a spec reads them all
+	const diagnostics: Array<PlaybackDiagnostic> = [];
 
-const store = createPlayerStore();
-const view = createViewStore();
+	store.subscribe((state, previous) => {
+		if (!state.diagnostic || state.diagnostic === previous.diagnostic) return;
 
-document
-	.querySelector('[data-player-host]')
-	?.append(createPlayer({ labels: defaultLabels, seekSeconds, store, urls, view }));
+		diagnostics.push(state.diagnostic);
+	});
 
-bindPageControls(store, document);
-presses.release();
-bindMediaSession(store);
-
-// The store keeps only the latest; a host sends every one, so a spec reads them all
-const diagnostics: Array<PlaybackDiagnostic> = [];
-
-store.subscribe((state, previous) => {
-	if (!state.diagnostic || state.diagnostic === previous.diagnostic) return;
-
-	diagnostics.push(state.diagnostic);
-});
-
-Object.defineProperty(window, 'playerPage', {
-	value: {
-		diagnostics,
-		get resolveCount() {
-			return resolveCount;
-		},
-		store,
-		view,
-	} satisfies PlayerPage,
-});
+	Object.defineProperty(window, 'playerPage', {
+		value: {
+			diagnostics,
+			get resolveCount() {
+				return resolveCount;
+			},
+			store,
+			view,
+		} satisfies PlayerPage,
+	});
+}

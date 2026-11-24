@@ -271,8 +271,8 @@ importers:
         specifier: workspace:^
         version: link:../plazmoid-core
       '@xsynaptic/sonic-ui':
-        specifier: ~0.31.0
-        version: 0.31.0
+        specifier: ~0.32.0
+        version: 0.32.0
       publint:
         specifier: ^0.3.25
         version: 0.3.25
@@ -1318,8 +1318,8 @@ packages:
   '@xsynaptic/eslint-config@6.10.0':
     resolution: {integrity: sha512-fVRWAjNVNobAu3WyXFYifuhmnkxZ3rDZfFbJjFsYNVPqA40DyLWC6nSM+2zqG4KhFDbFY1kzm/petwzE9YGhqQ==}
 
-  '@xsynaptic/sonic-ui@0.31.0':
-    resolution: {integrity: sha512-PIfQ8C2gbWXTe7cA3HK2fiwwMQV7hN+Avc7lSM33MOonMz4Zbb7k+3gq47kOvl3FwnkXquE2wntuJp0gt2BIQQ==}
+  '@xsynaptic/sonic-ui@0.32.0':
+    resolution: {integrity: sha512-AmtFb7mfiy6H9tuJqisTZ6LSoC8DPQoVoRU7arrMvcpMlyABFCZUVU7H7mVp3Eu41EVHC6+Y9m4U8E9OdCSEHg==}
     engines: {node: '>=24.0.0'}
 
   '@xsynaptic/stylelint-config@1.1.7':
@@ -3620,7 +3620,7 @@ snapshots:
       - typescript
       - vitest
 
-  '@xsynaptic/sonic-ui@0.31.0': {}
+  '@xsynaptic/sonic-ui@0.32.0': {}
 
   '@xsynaptic/stylelint-config@1.1.7(postcss@8.5.33)(stylelint-order@8.1.3(stylelint@17.16.0(supports-color@10.2.2)(typescript@6.0.3)))(stylelint@17.16.0(supports-color@10.2.2)(typescript@6.0.3))':
     dependencies:

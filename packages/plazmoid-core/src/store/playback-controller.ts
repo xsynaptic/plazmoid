@@ -118,9 +118,9 @@ export function createPlaybackController(
 		const track = queue[index];
 		if (!track || urls === undefined) return;
 
-		set(loadingState({ index, resumeAtSeconds, shouldAutoplay, track }));
-
 		const activeEngine = ensureEngine();
+
+		set(loadingState({ index, resumeAtSeconds, shouldAutoplay, track }));
 
 		// Silenced before the next track resolves, so nothing on screen disagrees with what is heard
 		if (isSwitch(loadedQueueId, track.queueId)) activeEngine.reset();

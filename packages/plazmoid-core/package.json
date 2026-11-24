@@ -1,7 +1,14 @@
 {
 	"name": "@xsynaptic/plazmoid-core",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"description": "The playback engine behind the Plazmoid audio player",
+	"keywords": [
+		"audio-player",
+		"playback",
+		"queue",
+		"media-session",
+		"headless"
+	],
 	"homepage": "https://github.com/xsynaptic/plazmoid#readme",
 	"bugs": {
 		"url": "https://github.com/xsynaptic/plazmoid/issues"

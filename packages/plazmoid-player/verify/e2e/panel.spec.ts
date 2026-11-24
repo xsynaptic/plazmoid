@@ -83,7 +83,7 @@ test('a panel handed Peaks of an unknown format version requests none', async ({
 	expect(requests.filter((request) => request.path.endsWith('.peaks.bin'))).toStrictEqual([]);
 });
 
-test('the zoom keys and a ctrl wheel set the panel scale, and a reload restores it', async ({
+test('the zoom keys and the wheel set the panel scale, and a reload restores it', async ({
 	harness,
 	isMobile,
 	page,
@@ -105,11 +105,6 @@ test('the zoom keys and a ctrl wheel set the panel scale, and a reload restores 
 	if (!isMobile) {
 		await control.hover();
 		await page.mouse.wheel(0, -100);
-		expect(await readZoom(page)).toBe(54.52);
-
-		await page.keyboard.down('Control');
-		await page.mouse.wheel(0, -100);
-		await page.keyboard.up('Control');
 		await expect.poll(() => readZoom(page)).toBeGreaterThan(54.52);
 	}
 

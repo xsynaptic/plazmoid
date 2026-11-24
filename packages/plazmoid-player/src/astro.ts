@@ -1,60 +1,114 @@
-import type { PageControls } from '@xsynaptic/plazmoid-core';
+import type {
+	ControlPress,
+	PageControls,
+	PlayerStoreApi,
+	PlayerUrls,
+} from '@xsynaptic/plazmoid-core';
 
+import { holdPresses, isPlayerActionable } from '@xsynaptic/plazmoid-core/boot';
+
+import type { PlayerOptions } from '#elements/create-player.ts';
+import type { PlayerRoot } from '#elements/player-root.ts';
 import type { ViewStoreApi } from '#view/view-store.ts';
 
-// Astro's swap event, cut to the field read here; a `DocumentEventMap` entry would clash with Astro's own in a host
-interface RouterSwapEvent extends Event {
-	readonly newDocument: Document;
+import { bindAstroRouter, loadPersistedStylesheet } from '#lib/astro-router.ts';
+
+export interface AstroPlayer {
+	controls: PageControls;
+	root: PlayerRoot;
+	store: PlayerStoreApi;
+	view: ViewStoreApi;
 }
 
-export function bindAstroRouter(view: ViewStoreApi, controls: PageControls): () => void {
-	const connection = new AbortController();
-	const { signal } = connection;
+export interface AstroPlayerConfig {
+	load?: () => Promise<AstroPlayerHooks>;
+	player: Omit<PlayerOptions, 'store' | 'urls' | 'view'>;
+	stylesheetUrl: string;
+	urls: (store: PlayerStoreApi) => PlayerUrls;
+}
 
-	// Without `moveBefore` the router moves the persisted bar out and back, which drops the dialog's modal state
-	document.addEventListener(
-		'astro:before-preparation',
-		() => {
-			view.getState().setOverlayOpen(false);
-		},
-		{ signal },
-	);
-	// Page load fires after the transition animates in, so marking there flashes the stale state
-	document.addEventListener(
-		'astro:after-swap',
-		() => {
-			controls.refresh();
-		},
-		{ signal },
-	);
+export interface AstroPlayerHooks {
+	onPress?: (press: ControlPress) => void;
+	onReady?: (player: AstroPlayer) => void;
+}
 
-	return () => {
-		connection.abort();
+const hostSelector = '[data-pzm-host]';
+
+const idleFallbackMs = 200;
+
+const started = new WeakSet<Element>();
+
+export function startAstroPlayer(configure: (host: Element) => AstroPlayerConfig): void {
+	const start = async (): Promise<void> => {
+		const host = document.querySelector(hostSelector);
+		if (!host || started.has(host) || !isPlayerActionable(document)) return;
+
+		started.add(host);
+
+		try {
+			await mountPlayer(host, configure(host));
+		} catch (error) {
+			reportError(error);
+		}
 	};
+
+	void start();
+	document.addEventListener('astro:page-load', () => {
+		void start();
+	});
 }
 
-// A link moved with the persisted bar drops out of `document.styleSheets`, so the sheet lives in the head
-export function loadPersistedStylesheet(href: string): Promise<void> {
-	const link = document.createElement('link');
+async function mountPlayer(
+	host: Element,
+	{ load, player, stylesheetUrl, urls }: AstroPlayerConfig,
+): Promise<void> {
+	const presses = holdPresses(document);
+	const stylesheet = loadPersistedStylesheet(stylesheetUrl);
 
-	link.href = href;
-	link.rel = 'stylesheet';
+	await Promise.race([whenIdle(), presses.pressed]);
 
-	// The router keeps a head stylesheet only when the incoming head carries the same href
-	document.addEventListener('astro:before-swap', {
-		handleEvent: ({ newDocument }: RouterSwapEvent) => {
-			newDocument.head.append(link.cloneNode());
-		},
-	});
+	const [, core, { createPlayer, createViewStore }, { onPress, onReady }] = await Promise.all([
+		stylesheet,
+		import('@xsynaptic/plazmoid-core'),
+		import('#index.ts'),
+		loadHooks(load),
+	]);
 
-	// A failed sheet still loads the player, since an unstyled bar still plays
+	const store = core.createPlayerStore();
+	const view = createViewStore();
+	const root = createPlayer({ ...player, store, urls: urls(store), view });
+
+	host.append(root);
+
+	const controls = core.bindPageControls(store, document, { onPress });
+
+	presses.release();
+	bindAstroRouter(view, controls);
+	// Once per document, since Safari reconnects the persisted root on every navigation and a root's binding would clear the lock screen each time
+	core.bindMediaSession(store);
+	onReady?.({ controls, root, store, view });
+}
+
+async function loadHooks(load: AstroPlayerConfig['load']): Promise<AstroPlayerHooks> {
+	if (!load) return {};
+
+	try {
+		return await load();
+	} catch (error) {
+		reportError(error);
+		return {};
+	}
+}
+
+function whenIdle(): Promise<void> {
 	return new Promise((resolve) => {
-		link.addEventListener('error', () => {
-			resolve();
-		});
-		link.addEventListener('load', () => {
-			resolve();
-		});
-		document.head.append(link);
+		if (typeof requestIdleCallback === 'function') {
+			requestIdleCallback(() => {
+				resolve();
+			});
+			return;
+		}
+
+		setTimeout(resolve, idleFallbackMs);
 	});
 }

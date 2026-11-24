@@ -31,17 +31,25 @@ The main entry registers nothing on import and can't load in Node. `./define` re
 
 ## Astro's client router
 
-To keep the bar playing across page changes, put it in an element with `transition:persist` and use the helpers from `./astro`:
+Render a persisted `data-pzm-host` element on every page and start the player from its script:
 
-```ts
-import { bindAstroRouter, loadPersistedStylesheet } from '@xsynaptic/plazmoid-player/astro';
+```astro
+<div data-pzm-host transition:persist="player"></div>
 
-await loadPersistedStylesheet(stylesheetUrl);
+<script>
+	import { startAstroPlayer } from '@xsynaptic/plazmoid-player/astro';
+	import { defaultLabels } from '@xsynaptic/plazmoid-player/labels';
+	import stylesheetUrl from '@xsynaptic/plazmoid-player/player.css?url';
 
-bindAstroRouter(view, bindPageControls(store, document));
+	startAstroPlayer(() => ({
+		player: { labels: defaultLabels },
+		stylesheetUrl,
+		urls: () => urls,
+	}));
+</script>
 ```
 
-The router drops any head stylesheet the next page doesn't link, so `loadPersistedStylesheet` carries the skin across. `bindAstroRouter` closes the full-screen view before a navigation and refreshes the page controls after it.
+`startAstroPlayer` calls your function once, on the first page with something to play, then loads the player on the first press or idle moment and replays any press made meanwhile. An optional `load()` runs beside the player's imports and resolves to `onPress` and `onReady` hooks; `urls` is called once it settles, and if it rejects the player starts without them.
 
 ## Styling
 

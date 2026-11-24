@@ -2,6 +2,13 @@
 	"name": "@xsynaptic/plazmoid-wavedata",
 	"version": "0.1.1",
 	"description": "The waveform format used by the Plazmoid audio player",
+	"keywords": [
+		"waveform",
+		"waveform-data",
+		"peaks",
+		"audio",
+		"binary-format"
+	],
 	"homepage": "https://github.com/xsynaptic/plazmoid#readme",
 	"bugs": {
 		"url": "https://github.com/xsynaptic/plazmoid/issues"

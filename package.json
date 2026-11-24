@@ -3,7 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
-	"description": "An audio player for music websites",
+	"description": "An opinionated audio player for music sites, with a queue, waveform views, and listening stats, built from custom elements on sonic-ui",
 	"author": "Alexander Synaptic <x@synapticism.com>",
 	"license": "MIT",
 	"repository": {

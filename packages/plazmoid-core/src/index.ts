@@ -1,4 +1,5 @@
 export type { AudioEngine, AudioEngineCallbacks, CreateAudioEngine } from '#engine/audio-engine.ts';
+export { whenMediaElement } from '#engine/media-element.ts';
 export { bindMediaSession } from '#engine/media-session.ts';
 export { bind } from '#lib/bind.ts';
 export { createMemoryStorage, readStored, removeStored, writeStored } from '#lib/storage.ts';
