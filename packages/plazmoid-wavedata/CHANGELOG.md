@@ -1,5 +1,11 @@
 # @xsynaptic/plazmoid-wavedata
 
+## 0.3.0
+
+### Minor Changes
+
+- Add the `./node` entry with `writeSourceWavedata`, and `writerRevision`.
+
 ## 0.2.0
 
 ### Minor Changes

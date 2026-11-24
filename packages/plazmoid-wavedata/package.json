@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/plazmoid-wavedata",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "The waveform format used by the Plazmoid audio player",
 	"keywords": [
 		"waveform",
@@ -29,6 +29,10 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./node": {
+			"types": "./dist/node.d.ts",
+			"import": "./dist/node.js"
 		},
 		"./fixtures/*": "./fixtures/*"
 	},

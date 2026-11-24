@@ -30,6 +30,9 @@ export interface WavedataWriter {
 	push: (bytes: Uint8Array) => void;
 }
 
+// Bump when the same source would write different bytes or facts; a host hashes it into its recipe to find stale files
+export const writerRevision = 1;
+
 const floatBytes = 4;
 const maxSampleCount = 0xff_ff_ff_ff;
 const recordPairBytes = pairsPerRecord * pairBytes;

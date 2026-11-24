@@ -23,4 +23,4 @@ export type { RecordTargets } from '#slices.ts';
 export { recordsByteRange, rmsRangeInSampleUnits, splitRecords } from '#slices.ts';
 export { validateWavedata } from '#validate.ts';
 export type { WavedataWriter, WavedataWriterOptions } from '#writer.ts';
-export { createWavedataWriter } from '#writer.ts';
+export { createWavedataWriter, writerRevision } from '#writer.ts';

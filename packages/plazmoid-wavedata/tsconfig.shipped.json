@@ -2,9 +2,10 @@
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
 		// What a browser at the build target has; the tests' newer globals stay out of shipped code
+		// The `./node` entry runs ffmpeg, so it is checked with Node's types by the main config alone
 		"lib": ["es2023", "dom", "dom.iterable"],
 		"types": []
 	},
 	"include": ["src"],
-	"exclude": ["src/**/*.test.ts", "src/test"]
+	"exclude": ["src/**/*.test.ts", "src/test", "src/node.ts", "src/node"]
 }

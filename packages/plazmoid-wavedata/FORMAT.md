@@ -19,7 +19,7 @@ Write `L` and `R` for a frame's two samples as signed 16-bit integers, and `÷` 
 
 ## Modes
 
-**Average** (the default). Each frame becomes one sample, `M = (L + R) ÷ 2`. A pair's minimum and maximum are the lowest and highest `M`, and its RMS is taken over `M`. The bands split the mono mix. The minimum and maximum bytes are identical to `audiowaveform -z 256 -b 8` (checked against version 1.11.1).
+**Average**. Each frame becomes one sample, `M = (L + R) ÷ 2`. A pair's minimum and maximum are the lowest and highest `M`, and its RMS is taken over `M`. The bands split the mono mix. The minimum and maximum bytes are identical to `audiowaveform -z 256 -b 8` (checked against version 1.11.1).
 
 **Overall**, after ffmpeg `astats`. The channels stay apart. A pair's minimum is the lowest of its `L` and `R` samples, its maximum the highest, and its RMS is taken over all 512 samples. Each channel is split into bands, and each band level is taken over both channels.
 

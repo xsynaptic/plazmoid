@@ -1,5 +1,12 @@
 # @xsynaptic/plazmoid-core
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @xsynaptic/plazmoid-wavedata@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes
