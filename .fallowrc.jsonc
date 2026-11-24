@@ -1,0 +1,58 @@
+{
+	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	// Out of Prettier's walk; its parallel jobs rewrite the cache while `prettier --check .` reads it
+	"cache": { "dir": "node_modules/.cache/fallow" },
+	"rules": {
+		// Dead code and dependency hygiene belong to knip
+		"unused-files": "off",
+		"unused-exports": "off",
+		"unused-types": "off",
+		"unused-enum-members": "off",
+		"unused-class-members": "off",
+		"unused-dependencies": "off",
+		"unused-dev-dependencies": "off",
+		"unused-optional-dependencies": "off",
+		"unlisted-dependencies": "off",
+		"unresolved-imports": "off",
+		"duplicate-exports": "off",
+		"type-only-dependencies": "off",
+		"test-only-dependencies": "off",
+		"dev-dependencies-in-production": "off",
+		"unused-dependency-overrides": "off",
+		"misconfigured-dependency-overrides": "off",
+		// Advisory by default; `fallow audit` in the gate fails only on rules raised to error
+		"css-token-drift": "error",
+		"css-duplicate-block": "error",
+		"css-broken-reference": "error",
+		"stale-suppressions": "error",
+		"require-suppression-reason": "error",
+	},
+	"health": {
+		// ESLint scores neither cognitive complexity nor a template, so this is the one ceiling on either
+		"maxCognitive": 10,
+		// Zero disables CRAP, which fallow otherwise estimates from the module graph without coverage data
+		"maxCrap": 0,
+	},
+	"duplicates": {
+		"minTokens": 30,
+		// The only setting that fails a dupes run, and zero means no limit; this low, any clone group fails
+		"threshold": 0.001,
+		// Core and the waveform reader each keep a retry backoff, so neither package exports one for the other
+		"ignore": ["packages/plazmoid-player/src/waveform/retry-delay.ts"],
+	},
+	"boundaries": {
+		// First match wins; a zone per package, since each package is a real dependency rule
+		"zones": [
+			{ "name": "core", "patterns": ["packages/plazmoid-core/**"] },
+			{ "name": "player", "patterns": ["packages/plazmoid-player/**"] },
+			{ "name": "wavedata", "patterns": ["packages/plazmoid-wavedata/**"] },
+			{ "name": "stats", "patterns": ["packages/plazmoid-stats/**"] },
+		],
+		"rules": [
+			{ "from": "player", "allow": ["player", "core", "wavedata"] },
+			{ "from": "core", "allow": ["core", "wavedata"] },
+			{ "from": "wavedata", "allow": ["wavedata"] },
+			{ "from": "stats", "allow": ["stats"] },
+		],
+	},
+}

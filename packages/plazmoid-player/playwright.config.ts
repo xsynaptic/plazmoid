@@ -1,0 +1,36 @@
+import { defineConfig, devices } from '@playwright/test';
+
+import { fixtureOrigin, pagePort } from '#e2e/constants.ts';
+
+const chromiumSilent = { launchOptions: { args: ['--mute-audio'] } };
+const firefoxSilent = { launchOptions: { firefoxUserPrefs: { 'media.volume_scale': '0.0' } } };
+
+export default defineConfig({
+	fullyParallel: true,
+	projects: [
+		{ name: 'chromium', use: { ...devices['Desktop Chrome'], ...chromiumSilent } },
+		{ name: 'firefox', use: { ...devices['Desktop Firefox'], ...firefoxSilent } },
+		{ name: 'webkit', use: { ...devices['Desktop Safari'] } },
+		{ name: 'mobile-webkit', use: { ...devices['iPhone 17'] } },
+	],
+	reporter: [['list'], ['html', { open: 'never' }]],
+	retries: 0,
+	testDir: './verify/e2e',
+	use: {
+		baseURL: `http://localhost:${String(pagePort)}`,
+		trace: 'retain-on-failure',
+	},
+	// Never reused: a server left on these ports by another checkout would be tested in this one's place
+	webServer: [
+		{
+			command: `vite verify/e2e/page --port ${String(pagePort)} --strictPort`,
+			reuseExistingServer: false,
+			url: `http://localhost:${String(pagePort)}`,
+		},
+		{
+			command: 'node verify/e2e/fixture-server.ts',
+			reuseExistingServer: false,
+			url: `${fixtureOrigin}/log`,
+		},
+	],
+});

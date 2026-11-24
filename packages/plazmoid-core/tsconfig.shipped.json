@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		// What a browser at the build target has; the tests' newer globals stay out of shipped code
+		"lib": ["es2023", "dom", "dom.iterable"],
+		"types": []
+	},
+	"include": ["src"],
+	"exclude": ["src/**/*.test.ts", "src/test"]
+}

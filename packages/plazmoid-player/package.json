@@ -1,0 +1,88 @@
+{
+	"name": "@xsynaptic/plazmoid-player",
+	"version": "0.1.0",
+	"description": "The interface for the Plazmoid audio player",
+	"homepage": "https://github.com/xsynaptic/plazmoid#readme",
+	"bugs": {
+		"url": "https://github.com/xsynaptic/plazmoid/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xsynaptic/plazmoid.git",
+		"directory": "packages/plazmoid-player"
+	},
+	"license": "MIT",
+	"author": "Alexander Synaptic <x@synapticism.com>",
+	"type": "module",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"sideEffects": [
+		"*.css",
+		"./dist/define.js",
+		"./dist/define/*.js"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./astro": {
+			"types": "./dist/astro.d.ts",
+			"import": "./dist/astro.js"
+		},
+		"./constants": {
+			"types": "./dist/constants.d.ts",
+			"import": "./dist/constants.js"
+		},
+		"./define": {
+			"types": "./dist/define.d.ts",
+			"import": "./dist/define.js"
+		},
+		"./define/*": {
+			"types": "./dist/define/*.d.ts",
+			"import": "./dist/define/*.js"
+		},
+		"./labels": {
+			"types": "./dist/labels.d.ts",
+			"import": "./dist/labels.js"
+		},
+		"./player.css": "./dist/player.css"
+	},
+	"imports": {
+		"#e2e/*": "./verify/e2e/*",
+		"#*": "./src/*"
+	},
+	"files": [
+		"dist",
+		"CHANGELOG.md"
+	],
+	"publishConfig": {
+		"imports": {}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.shipped.json",
+		"cut-fixtures": "node verify/e2e/cut-fixtures.ts",
+		"test-e2e": "pnpm cut-fixtures && playwright test"
+	},
+	"dependencies": {
+		"@xsynaptic/plazmoid-wavedata": "workspace:^",
+		"zustand": "^5.1.0"
+	},
+	"peerDependencies": {
+		"@xsynaptic/plazmoid-core": "workspace:^",
+		"@xsynaptic/sonic-ui": "~0.31.0"
+	},
+	"devDependencies": {
+		"@fast-check/vitest": "^0.5.0",
+		"@playwright/test": "^1.65.1",
+		"@testing-library/dom": "^10.4.2",
+		"@xsynaptic/plazmoid-core": "workspace:^",
+		"@xsynaptic/sonic-ui": "~0.31.0",
+		"publint": "^0.3.25",
+		"tsdown": "^0.23.7",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.8"
+	}
+}

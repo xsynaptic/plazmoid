@@ -1,0 +1,45 @@
+{
+	"name": "plazmoid",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "An audio player for music websites",
+	"author": "Alexander Synaptic <x@synapticism.com>",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xsynaptic/plazmoid.git"
+	},
+	"packageManager": "pnpm@12.21.0",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"scripts": {
+		"prepare": "pnpm --filter './packages/*' build",
+		"build": "pnpm --filter './packages/*' build",
+		"check-types": "tsc --noEmit && pnpm --recursive check-types",
+		"test": "pnpm build && vitest run",
+		"changeset": "changeset",
+		"version-packages": "changeset version && pnpm install --ignore-scripts",
+		"check": "lefthook run check --no-auto-install",
+		"fix": "lefthook run fix --no-auto-install",
+		"release": "node scripts/release.ts"
+	},
+	"devDependencies": {
+		"@changesets/cli": "^3.0.3",
+		"@types/node": "^24.19.2",
+		"@xsynaptic/eslint-config": "^6.10.0",
+		"@xsynaptic/stylelint-config": "^1.1.7",
+		"eslint": "^10.15.0",
+		"fallow": "^3.43.2",
+		"globals": "^17.14.0",
+		"happy-dom": "^21.0.4",
+		"knip": "^6.45.1",
+		"lefthook": "^2.2.2",
+		"prettier": "^3.10.1",
+		"stylelint": "^17.16.0",
+		"tsdown": "^0.23.7",
+		"typescript": "^6.0.3",
+		"vitest": "^5.1.0"
+	}
+}

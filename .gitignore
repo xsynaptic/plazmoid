@@ -1,0 +1,13 @@
+node_modules
+dist
+.cache/
+temp/
+*.tsbuildinfo
+.DS_Store
+
+.claude/
+
+# Cut from a local track by `cut-fixtures`; no audio is committed
+packages/plazmoid-player/verify/e2e/.fixtures/
+packages/plazmoid-player/playwright-report/
+packages/plazmoid-player/test-results/

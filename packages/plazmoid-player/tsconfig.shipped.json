@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		// What a browser at the build target has, plus `Intl.DurationFormat`, which its one caller probes for
+		"lib": ["es2023", "es2025.intl", "dom", "dom.iterable"],
+		"types": []
+	},
+	"include": ["src"],
+	"exclude": ["src/**/*.test.ts", "src/test"]
+}
