@@ -91,6 +91,26 @@ export function movedTrack(state: QueueState, from: number, to: number): QueueSt
 	};
 }
 
+export function queuedTracks(
+	state: QueueState,
+	tracks: ReadonlyArray<QueuedTrack>,
+): QueueState | undefined {
+	const queuedIds = new Set(state.queue.map((track) => track.trackId));
+	const added: Array<QueuedTrack> = [];
+
+	for (const track of tracks) {
+		if (queuedIds.has(track.trackId)) continue;
+
+		queuedIds.add(track.trackId);
+		added.push(track);
+	}
+
+	if (added.length === 0) return undefined;
+	if (state.queue.length === 0) return loadedQueue(state, added);
+
+	return appended(state, added).state;
+}
+
 // `undefined` when nothing differs, so an unchanged queue is not written back to storage
 export function refreshedQueue(
 	queue: ReadonlyArray<QueuedTrack>,

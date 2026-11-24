@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/plazmoid-player",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "The interface for the Plazmoid audio player",
 	"homepage": "https://github.com/xsynaptic/plazmoid#readme",
 	"bugs": {
@@ -64,6 +64,7 @@
 		"build": "tsdown",
 		"check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.shipped.json",
 		"cut-fixtures": "node verify/e2e/cut-fixtures.ts",
+		"playground": "node verify/e2e/playground.ts",
 		"test-e2e": "pnpm cut-fixtures && playwright test"
 	},
 	"dependencies": {

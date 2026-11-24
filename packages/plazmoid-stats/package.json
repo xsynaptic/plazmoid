@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/plazmoid-stats",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Measures how much of a track was actually heard",
 	"homepage": "https://github.com/xsynaptic/plazmoid#readme",
 	"bugs": {

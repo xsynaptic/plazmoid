@@ -77,7 +77,7 @@ describe('bindPageControls', () => {
 		expect(element('[data-pzm-play-track]').hasAttribute(heldPressAttribute)).toBe(false);
 	});
 
-	test('a track control beats the play-all wrapped around it, queueing without playing', () => {
+	test('a track control beats the play-all wrapped around it, queueing only its own track', () => {
 		const page = bindPage(
 			[makeTrack('a'), makeTrack('b')],
 			'<div data-pzm-play-tracks="a b"><button data-pzm-queue-track="b"></button></div>',
@@ -86,8 +86,84 @@ describe('bindPageControls', () => {
 		page.bind();
 		element('[data-pzm-queue-track]').click();
 
-		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['a', 'b']);
+		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['b']);
 		expect(loadedTrack(page.store.getState())).toBeUndefined();
+	});
+
+	test('queues a group without playing, leaving the tracks already queued where they are', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b'), makeTrack('c')],
+			'<button data-pzm-queue-tracks="a b c"></button>',
+		);
+
+		page.bind();
+		page.store.getState().queueTrack([makeTrack('b')], 'b');
+		element('[data-pzm-queue-tracks]').click();
+
+		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['b', 'a', 'c']);
+		expect(loadedTrack(page.store.getState())).toBeUndefined();
+		expect(page.onPress).toHaveBeenCalledWith({ trackIds: ['a', 'b', 'c'], verb: 'queue-tracks' });
+	});
+
+	test('replays a held group press as it would a track press', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b')],
+			`<button data-pzm-queue-tracks="a b" ${heldPressAttribute}></button>`,
+		);
+
+		page.bind();
+
+		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['a', 'b']);
+	});
+
+	test('plays a group from its chosen track, reporting the group in order and the start beside it', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b'), makeTrack('c')],
+			'<button data-pzm-play-tracks="a b c" data-pzm-play-from="b"></button>',
+		);
+
+		page.bind();
+		page.store.getState().loadQueue([makeTrack('x')]);
+		element('[data-pzm-play-tracks]').click();
+
+		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['a', 'b', 'c']);
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+		expect(page.onPress).toHaveBeenCalledWith({
+			startTrackId: 'b',
+			trackIds: ['a', 'b', 'c'],
+			verb: 'play-tracks',
+		});
+	});
+
+	test('a play-from control pauses only its own track, and jumps from any other track of the group', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b'), makeTrack('c')],
+			'<button data-pzm-play-tracks="a b c" data-pzm-play-from="a" id="from-a"></button><button data-pzm-play-tracks="a b c" data-pzm-play-from="c" id="from-c"></button>',
+		);
+
+		page.bind();
+		element('#from-a').click();
+
+		expect(element('#from-a').dataset.pzmPlaying).toBe('');
+		expect(element('#from-c').dataset.pzmPlaying).toBeUndefined();
+
+		element('#from-c').click();
+
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('c');
+		expect(page.store.getState().isPaused).toBe(false);
+		expect(page.onPress).toHaveBeenLastCalledWith({
+			startTrackId: 'c',
+			trackIds: ['a', 'b', 'c'],
+			verb: 'play-tracks',
+		});
+
+		element('#from-c').click();
+
+		expect(page.store.getState().isPaused).toBe(true);
+		expect(page.onPress).toHaveBeenLastCalledWith({
+			trackIds: ['a', 'b', 'c'],
+			verb: 'toggle-tracks',
+		});
 	});
 
 	test('refreshes the queue from the payload on binding and on a refresh', () => {

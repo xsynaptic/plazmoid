@@ -220,12 +220,6 @@
 		calc(var(--pzm-overlay-inset-bottom) + 100lvh - 100dvh) var(--pzm-overlay-inset-left);
 }
 
-.pzm-overlay-cue-list {
-	padding: 0;
-	margin: 0;
-	list-style: none;
-}
-
 .pzm-overlay-cue-list > li {
 	contain-intrinsic-size: auto 3.25rem;
 	content-visibility: auto;

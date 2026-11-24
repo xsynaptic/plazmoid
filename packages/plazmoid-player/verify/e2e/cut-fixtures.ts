@@ -29,7 +29,7 @@ async function cutArtwork(): Promise<void> {
 		'-f',
 		'lavfi',
 		'-i',
-		'color=c=0x2a4a5a:s=512x512',
+		'color=c=0x262626:s=512x512',
 		'-frames:v',
 		'1',
 		path.join(fixturesDirectory, 'art.png'),

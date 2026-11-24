@@ -17,6 +17,7 @@
 @import '@xsynaptic/sonic-ui/wavestrip.css';
 @import '@xsynaptic/sonic-ui/waveform.css';
 @import './styles/tokens.css';
+@import './styles/reset.css';
 @import './styles/host.css';
 @import './styles/focus.css';
 @import './styles/status.css';

@@ -11,6 +11,7 @@ import {
 	createQueueIds,
 	loadedQueue,
 	movedTrack,
+	queuedTracks,
 	refreshedQueue,
 	removedAt,
 	shuffledQueue,
@@ -27,6 +28,7 @@ type QueueActions = Pick<
 	| 'playQueue'
 	| 'playTrack'
 	| 'queueTrack'
+	| 'queueTracks'
 	| 'refreshQueue'
 	| 'removeAt'
 	| 'toggleShuffle'
@@ -106,11 +108,14 @@ export function createQueueActions({
 			set(movedTrack(state, from, to));
 		},
 
-		playQueue: (tracks) => {
+		playQueue: (tracks, startTrackId) => {
 			if (tracks.length === 0) return;
+			if (startTrackId !== undefined && tracks.every((track) => track.trackId !== startTrackId)) {
+				return;
+			}
 
 			get().clearQueue();
-			enqueue(tracks);
+			enqueue(tracks, startTrackId);
 		},
 
 		playTrack: (releaseTracks, trackId) => {
@@ -118,10 +123,16 @@ export function createQueueActions({
 		},
 
 		queueTrack: (releaseTracks, trackId) => {
-			const appended = appendedQueue(queueState(), stamped(releaseTracks), trackId);
-			if (!appended) return;
+			const track = releaseTracks.find((releaseTrack) => releaseTrack.trackId === trackId);
+			if (!track) return;
 
-			set(appended.state);
+			get().queueTracks([track]);
+		},
+
+		queueTracks: (tracks) => {
+			const queued = queuedTracks(queueState(), stamped(tracks));
+
+			if (queued) set(queued);
 		},
 
 		refreshQueue: (tracks) => {

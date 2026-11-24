@@ -23,6 +23,7 @@
 		"version-packages": "changeset version && pnpm install --ignore-scripts",
 		"check": "lefthook run check --no-auto-install",
 		"fix": "lefthook run fix --no-auto-install",
+		"playground": "pnpm -F @xsynaptic/plazmoid-player playground",
 		"release": "node scripts/release.ts"
 	},
 	"devDependencies": {

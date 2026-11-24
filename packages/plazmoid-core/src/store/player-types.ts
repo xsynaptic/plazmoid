@@ -30,12 +30,13 @@ export interface PlayerActions {
 	// Never pauses, for a remote that sends play and pause as separate actions
 	play: () => void;
 	playAt: (index: number) => void;
-	playQueue: (tracks: ReadonlyArray<Track>) => void;
+	playQueue: (tracks: ReadonlyArray<Track>, startTrackId?: string) => void;
 	// Empty queue loads the whole release at the clicked track; a running queue appends that track and jumps to it
 	playTrack: (releaseTracks: ReadonlyArray<Track>, trackId: string) => void;
 	previous: () => void;
-	// Appends the way `playTrack` does and stops there; a track already in the queue stays where it is
+	// Only that track, even onto an empty queue, so the bar shows what was pressed
 	queueTrack: (releaseTracks: ReadonlyArray<Track>, trackId: string) => void;
+	queueTracks: (tracks: ReadonlyArray<Track>) => void;
 	// Swaps in the fresh copy of every queued track it is handed, so a queue restored from an older build picks up new fields
 	refreshQueue: (tracks: ReadonlyArray<Track>) => void;
 	removeAt: (index: number) => void;

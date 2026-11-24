@@ -45,9 +45,10 @@ The media element is never added to the document, and it requests audio with `cr
 	<button data-pzm-queue-track="one" type="button">Queue</button>
 </div>
 <button data-pzm-play-tracks="one two" type="button">Play all</button>
+<button data-pzm-play-tracks="one two" data-pzm-play-from="two" type="button">Play from two</button>
 ```
 
-`data-pzm-play-track` plays a track, `data-pzm-queue-track` adds it without playing, and `data-pzm-play-tracks` replaces the queue with a list of ids. A row marked with `data-pzm-track-id` gets `data-pzm-loaded`, `data-pzm-playing` and `data-pzm-queued` as its track changes state, so you can style it. Cue point lists work the same way, with `data-pzm-cue-track` on the list and `data-pzm-cue-seconds` on each row.
+`data-pzm-play-track` plays a track, `data-pzm-queue-track` adds it without playing, `data-pzm-play-tracks` replaces the queue with a list of ids and `data-pzm-queue-tracks` adds them. `data-pzm-play-from` beside `data-pzm-play-tracks` names the id to start at. A row marked with `data-pzm-track-id` gets `data-pzm-loaded`, `data-pzm-playing` and `data-pzm-queued` as its track changes state, so you can style it. Cue point lists work the same way, with `data-pzm-cue-track` on the list and `data-pzm-cue-seconds` on each row.
 
 After a client-side navigation, call `refresh()` on the controls `bindPageControls` returns.
 

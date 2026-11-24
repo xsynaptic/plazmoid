@@ -66,6 +66,25 @@ describe('playQueue', () => {
 		expect(fake.engine.reset).toHaveBeenCalledOnce();
 	});
 
+	test('starts the new queue at the chosen track', () => {
+		const store = configured();
+
+		store.getState().playQueue(release, 'c');
+
+		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['a', 'b', 'c']);
+		expect(store.getState().currentIndex).toBe(2);
+	});
+
+	test('leaves the running queue alone when the chosen track is not among the new ones', () => {
+		const store = configured();
+
+		store.getState().playTrack(release, 'b');
+		store.getState().playQueue([makeTrack('x')], 'c');
+
+		expect(store.getState().queue).toHaveLength(3);
+		expect(store.getState().currentIndex).toBe(1);
+	});
+
 	test('ignores an empty list rather than clearing what is loaded', () => {
 		const store = configured();
 
@@ -91,6 +110,42 @@ describe('queueTrack', () => {
 		expect(state.currentIndex).toBeUndefined();
 		expect(state.status).toBe('idle');
 		expect(fake.engine.load).not.toHaveBeenCalled();
+	});
+
+	test('onto an empty queue, appends only the clicked track', () => {
+		const store = configured();
+
+		store.getState().queueTrack(release, 'b');
+
+		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['b']);
+		expect(store.getState().currentIndex).toBeUndefined();
+	});
+});
+
+describe('queueTracks', () => {
+	test('appends every track not yet queued, in order, without loading', () => {
+		const store = configured();
+
+		store.getState().loadQueue([makeTrack('x'), makeTrack('b')]);
+		store.getState().queueTracks(release);
+
+		const state = store.getState();
+
+		expect(state.queue.map((track) => track.trackId)).toStrictEqual(['x', 'b', 'a', 'c']);
+		expect(state.currentIndex).toBeUndefined();
+		expect(fake.engine.load).not.toHaveBeenCalled();
+	});
+
+	test('changes nothing when every track is already queued', () => {
+		const store = configured();
+
+		store.getState().queueTracks(release);
+
+		const { queue } = store.getState();
+
+		store.getState().queueTracks(release);
+
+		expect(store.getState().queue).toBe(queue);
 	});
 });
 

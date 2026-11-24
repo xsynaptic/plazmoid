@@ -47,8 +47,6 @@ The router drops any head stylesheet the next page doesn't link, so `loadPersist
 
 The elements, the `pzm-*` classes and the `--pzm-*` custom properties are all public. `<pzm-root>` also reflects the player's state in `data-*` attributes, such as `data-status` and `data-paused`, for your own rules.
 
-The skin assumes a CSS reset like Tailwind's preflight. Without one, the tray rows and the time display keep the browser's default button styling.
-
 Some animations carry meaning, like the loading ring on the play button. While one runs, its element has `data-pzm-essential-motion`, so a global reduced-motion reset can leave it alone:
 
 ```css

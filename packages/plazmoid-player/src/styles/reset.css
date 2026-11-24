@@ -1,0 +1,21 @@
+/* Preflight's values, so a host with it sees no change; a bare element rule would beat sonic-ui's layered buttons */
+:where(.pzm-overlay-cue, .pzm-overlay-tab, .pzm-time, .pzm-tray-handle, .pzm-tray-pick) {
+	padding: 0;
+	font: inherit;
+	color: inherit;
+	letter-spacing: inherit;
+	background-color: transparent;
+	border: 0;
+	border-radius: 0;
+	opacity: 1;
+}
+
+:where(.pzm-panel-now, .pzm-tray-empty, .pzm-tray-status) {
+	margin: 0;
+}
+
+:where(.pzm-overlay-cue-list, .pzm-tray-list) {
+	padding: 0;
+	margin: 0;
+	list-style: none;
+}

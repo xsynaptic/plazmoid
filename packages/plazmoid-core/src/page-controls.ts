@@ -11,11 +11,13 @@ import {
 	loadedAttribute,
 	payloadAttribute,
 	payloadSelector,
+	playFromAttribute,
 	playingAttribute,
 	playTrackAttribute,
 	playTracksAttribute,
 	queuedAttribute,
 	queueTrackAttribute,
+	queueTracksAttribute,
 	trackIdAttribute,
 } from '#constants.ts';
 import { bind } from '#lib/bind.ts';
@@ -24,8 +26,9 @@ import { toStoredTrack } from '#store/stored-shapes.ts';
 
 // The resolved press, so a host reads the verb rather than re-deriving it from the DOM
 export interface ControlPress {
+	startTrackId?: string;
 	trackIds: Array<string>;
-	verb: 'play-track' | 'play-tracks' | 'queue-track' | 'toggle-tracks';
+	verb: 'play-track' | 'play-tracks' | 'queue-track' | 'queue-tracks' | 'toggle-tracks';
 }
 
 export interface PageControls {
@@ -108,8 +111,17 @@ function attribute(element: Element, name: string): string | undefined {
 	return element.getAttribute(name) ?? undefined;
 }
 
-function isTunedIn(groupIds: string, trackId: string | undefined): boolean {
-	return trackId !== undefined && groupIds.split(' ').includes(trackId);
+function isGroupLoaded(control: Element, trackId: string | undefined): boolean {
+	if (trackId === undefined) return false;
+
+	const playFrom = attribute(control, playFromAttribute);
+	if (playFrom !== undefined) return playFrom === trackId;
+
+	return groupIds(control).includes(trackId);
+}
+
+function groupIds(control: Element): Array<string> {
+	return (attribute(control, playTracksAttribute) ?? '').split(' ');
 }
 
 function markCueRows(page: Document, { cueStartSeconds, trackId }: RowState): void {
@@ -127,10 +139,7 @@ function markCueRows(page: Document, { cueStartSeconds, trackId }: RowState): vo
 
 function markTrackGroups(page: Document, { isPlaying, trackId }: RowState): void {
 	for (const group of page.querySelectorAll(`[${CSS.escape(playTracksAttribute)}]`)) {
-		group.toggleAttribute(
-			playingAttribute,
-			isPlaying && isTunedIn(attribute(group, playTracksAttribute) ?? '', trackId),
-		);
+		group.toggleAttribute(playingAttribute, isPlaying && isGroupLoaded(group, trackId));
 	}
 }
 
@@ -194,9 +203,8 @@ function parsePayload(payload: string): Array<Track> | undefined {
 	return parsed.map((entry) => toStoredTrack(entry)).filter((track) => track !== undefined);
 }
 
-function tracksWithIds(ids: string, tracks: ReadonlyArray<Track>): Array<Track> {
+function tracksWithIds(ids: ReadonlyArray<string>, tracks: ReadonlyArray<Track>): Array<Track> {
 	return ids
-		.split(' ')
 		.map((trackId) => tracks.find((track) => track.trackId === trackId))
 		.filter((track) => track !== undefined);
 }
@@ -207,20 +215,16 @@ function pressControl(
 	control: Element,
 	tracks: Array<Track>,
 ): ControlPress | undefined {
-	const playTracks = attribute(control, playTracksAttribute);
+	if (control.hasAttribute(playTracksAttribute)) return pressGroup(state, control, tracks);
 
-	if (playTracks !== undefined && isTunedIn(playTracks, loadedTrack(state)?.trackId)) {
-		state.togglePaused();
+	const queueTracks = attribute(control, queueTracksAttribute);
 
-		return { trackIds: playTracks.split(' '), verb: 'toggle-tracks' };
-	}
+	if (queueTracks !== undefined) {
+		const group = tracksWithIds(queueTracks.split(' '), tracks);
 
-	if (playTracks !== undefined) {
-		const group = tracksWithIds(playTracks, tracks);
+		state.queueTracks(group);
 
-		state.playQueue(group);
-
-		return { trackIds: group.map((track) => track.trackId), verb: 'play-tracks' };
+		return { trackIds: group.map((track) => track.trackId), verb: 'queue-tracks' };
 	}
 
 	const queueTrack = attribute(control, queueTrackAttribute);
@@ -237,6 +241,24 @@ function pressControl(
 	state.playTrack(tracks, playTrack);
 
 	return { trackIds: [playTrack], verb: 'play-track' };
+}
+
+function pressGroup(state: PlayerStore, control: Element, tracks: Array<Track>): ControlPress {
+	if (isGroupLoaded(control, loadedTrack(state)?.trackId)) {
+		state.togglePaused();
+
+		return { trackIds: groupIds(control), verb: 'toggle-tracks' };
+	}
+
+	const group = tracksWithIds(groupIds(control), tracks);
+	const trackIds = group.map((track) => track.trackId);
+	const playFrom = attribute(control, playFromAttribute);
+
+	state.playQueue(group, playFrom);
+
+	if (playFrom === undefined) return { trackIds, verb: 'play-tracks' };
+
+	return { startTrackId: playFrom, trackIds, verb: 'play-tracks' };
 }
 
 function rowStateSelector(): (state: PlayerStore) => RowState {

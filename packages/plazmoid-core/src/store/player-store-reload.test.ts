@@ -13,7 +13,7 @@ type ListenerStep =
 	| { at: number; kind: 'play-at' | 'remove' }
 	| { from: number; kind: 'move'; to: number }
 	| { kind: 'listen'; quarters: number }
-	| { kind: 'load'; trackIds: Array<string> }
+	| { kind: 'load' | 'queue-tracks'; trackIds: Array<string> }
 	| { kind: 'play-track' | 'queue-track'; pick: number; trackIds: Array<string> }
 	| { kind: 'shuffle' };
 
@@ -23,7 +23,10 @@ const releaseOfIds = fc.subarray(catalogIds, { minLength: 1 });
 
 const listenerSteps = fc.array(
 	fc.oneof(
-		fc.record({ kind: fc.constant('load' as const), trackIds: releaseOfIds }),
+		fc.record({
+			kind: fc.constantFrom('load' as const, 'queue-tracks' as const),
+			trackIds: releaseOfIds,
+		}),
 		fc.record({
 			kind: fc.constantFrom('play-track' as const, 'queue-track' as const),
 			pick: fc.nat(),
@@ -72,6 +75,10 @@ function takeStep(store: ReturnType<typeof createWritablePlayerStore>, step: Lis
 			const action = step.kind === 'play-track' ? state.playTrack : state.queueTrack;
 
 			action(release, trackId);
+			return;
+		}
+		case 'queue-tracks': {
+			state.queueTracks(step.trackIds.map(makeTrack));
 			return;
 		}
 		case 'remove': {

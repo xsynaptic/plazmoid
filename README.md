@@ -27,6 +27,8 @@ The player's end-to-end tests run in Chromium, Firefox and WebKit. No audio is c
 PZM_FIXTURE_SOURCE=/path/to/track.mp4 pnpm -F @xsynaptic/plazmoid-player test-e2e
 ```
 
+`pnpm playground` builds, then opens that test page with its fixture audio. After a change, run `pnpm build` and reload.
+
 ## Releases
 
 Add a changeset with `pnpm changeset` whenever a package changes. All four packages share one version.

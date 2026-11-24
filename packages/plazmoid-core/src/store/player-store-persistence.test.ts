@@ -66,6 +66,25 @@ describe('queue persistence', () => {
 		localStorage.clear();
 	});
 
+	test('queues a whole release with one write of the tracks and one of the order', () => {
+		const store = persisted();
+
+		store.getState().loadQueue([makeTrack('x')]);
+
+		const setItem = vi.spyOn(localStorage, 'setItem');
+
+		store.getState().queueTracks(release);
+
+		expect(setItem.mock.calls.map(([key]) => key)).toStrictEqual([
+			queueTracksStorageKey,
+			queueStorageKey,
+		]);
+		expect(Object.keys(storedTracks())).toStrictEqual(['x', 'a', 'b', 'c']);
+
+		setItem.mockRestore();
+		localStorage.clear();
+	});
+
 	test('writes the tracks when one is added, removed or refreshed', () => {
 		const store = persisted();
 

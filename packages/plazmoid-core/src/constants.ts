@@ -15,8 +15,10 @@ export const stallAfterMs = 20_000;
 export const cueTrackAttribute = 'data-pzm-cue-track';
 export const cueSecondsAttribute = 'data-pzm-cue-seconds';
 export const payloadAttribute = 'data-pzm-payload';
+export const playFromAttribute = 'data-pzm-play-from';
 export const playTracksAttribute = 'data-pzm-play-tracks';
 export const playTrackAttribute = 'data-pzm-play-track';
+export const queueTracksAttribute = 'data-pzm-queue-tracks';
 export const queueTrackAttribute = 'data-pzm-queue-track';
 export const trackIdAttribute = 'data-pzm-track-id';
 
@@ -25,6 +27,6 @@ export const loadedAttribute = 'data-pzm-loaded';
 export const playingAttribute = 'data-pzm-playing';
 export const queuedAttribute = 'data-pzm-queued';
 
-export const controlSelector = `[${queueTrackAttribute}],[${playTrackAttribute}],[${playTracksAttribute}]`;
+export const controlSelector = `[${queueTrackAttribute}],[${queueTracksAttribute}],[${playTrackAttribute}],[${playTracksAttribute}]`;
 export const heldPressSelector = `[${heldPressAttribute}]`;
 export const payloadSelector = `[${payloadAttribute}]`;
