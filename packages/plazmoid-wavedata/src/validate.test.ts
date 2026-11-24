@@ -1,117 +1,80 @@
-import { describe, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 
-import { buildBands, buildPeaks } from '#files.ts';
-import { validateWavedata } from '#validate.ts';
+import { describeWavedata, parseHeader, validateWavedata } from '#index.ts';
+import { readGolden } from '#test/golden.ts';
 
-type Pair = [min: number, max: number, rms: number];
+async function damaged(change: (file: Uint8Array) => void) {
+	const { files } = await readGolden();
+	const file = new Uint8Array(files.overall);
 
-const soundPair: Pair = [-10, 20, 12];
-
-function peaksOf(pairs: ReadonlyArray<Pair>, sampleRate = 44_100): Uint8Array {
-	return buildPeaks(Int8Array.from(pairs.flat()), sampleRate);
-}
-
-function bandsOf(frameCount: number, sampleRate = 44_100): Uint8Array {
-	return buildBands(new Uint8Array(frameCount * 3), sampleRate);
-}
-
-function rewrite(file: Uint8Array, offset: number, value: number): Uint8Array {
-	new DataView(file.buffer).setUint32(offset, value, true);
+	change(file);
 
 	return file;
 }
 
-describe('validateWavedata', () => {
-	test('passes peaks alone, and peaks beside bands cut from the same samples', () => {
-		const fivePairs = Array.from({ length: 5 }, () => soundPair);
+test('a zeroed header does not pass', () => {
+	expect(validateWavedata(new Uint8Array(77))).toStrictEqual(['The file does not start with PZWD']);
+});
 
-		expect(validateWavedata({ peaks: peaksOf(fivePairs) })).toStrictEqual([]);
-		expect(validateWavedata({ bands: bandsOf(2), peaks: peaksOf(fivePairs) })).toStrictEqual([]);
+test('a newer version is refused without reading its layout', async () => {
+	const file = await damaged((bytes) => {
+		bytes[4] = 3;
 	});
 
-	test('passes any level byte, a zero beside a sounding band included', () => {
-		const bands = buildBands(Uint8Array.from([0, 255, 1]), 44_100);
+	expect(validateWavedata(file)).toStrictEqual(['The file has version 3, expected 2']);
+	expect(() => parseHeader(file)).toThrow('version 3');
+});
 
-		expect(validateWavedata({ bands, peaks: peaksOf([soundPair]) })).toStrictEqual([]);
+test('an unknown mode is reported', async () => {
+	const file = await damaged((bytes) => {
+		bytes[20] = 0;
 	});
 
-	test('reports a file shorter than its header and stops reading it', () => {
-		expect(validateWavedata({ peaks: new Uint8Array(23) })).toStrictEqual([
-			'Peaks are shorter than their header',
-		]);
-		expect(
-			validateWavedata({ bands: new Uint8Array(35), peaks: peaksOf([soundPair]) }),
-		).toStrictEqual(['Band data is shorter than its header']);
+	expect(validateWavedata(file)).toStrictEqual(['The header has mode 0']);
+});
+
+test('a pair count that disagrees with the sample count is reported', async () => {
+	const file = await damaged((bytes) => {
+		bytes[28] = 1;
+		bytes[29] = 0x0a;
 	});
 
-	test('reports every header field off its value, in both files at once', () => {
-		const peaks = rewrite(rewrite(peaksOf([soundPair]), 0, 2), 20, 7);
-		const bands = rewrite(bandsOf(1), 24, 4000);
+	expect(validateWavedata(file)).toStrictEqual(['The header has pair count 10, expected 11']);
+});
 
-		expect(validateWavedata({ bands, peaks })).toStrictEqual([
-			'Peaks has version 2, expected 1',
-			'Peaks has value kind 7, expected 1',
-			'Band data has second band edge 4000, expected 2000',
-		]);
+test('a set reserved byte is reported', async () => {
+	const file = await damaged((bytes) => {
+		bytes[23] = 1;
 	});
 
-	test('reports a sample rate of zero and a file that holds nothing', () => {
-		expect(validateWavedata({ bands: bandsOf(0, 0), peaks: peaksOf([], 0) })).toStrictEqual([
-			'Peaks sample rate is 0',
-			'Peaks pair count is 0',
-			'Band data sample rate is 0',
-			'Band data frame count is 0',
-		]);
+	expect(validateWavedata(file)).toStrictEqual(['The header has reserved byte 1, expected 0']);
+});
+
+test('a truncated file is reported, and is not described', async () => {
+	const { files } = await readGolden();
+	const file = files.overall.subarray(0, 62);
+
+	expect(validateWavedata(file)).toStrictEqual(['The file is 62 bytes, expected 77 for 10 pairs']);
+	expect(() => describeWavedata(file)).toThrow('truncated');
+});
+
+test('bytes in a pair slot past the count are reported', async () => {
+	const file = await damaged((bytes) => {
+		bytes[32 + 2 * 15 + 3 * 3 + 2] = 9;
 	});
 
-	test('reports a length that is not the header plus what it counts, short or long', () => {
-		const peaks = peaksOf([soundPair, soundPair]);
-		const padded = new Uint8Array(31);
+	expect(validateWavedata(file)).toStrictEqual([
+		'The file has bytes past the pair count in 1 pairs, the first at pair 11',
+	]);
+});
 
-		padded.set(peaks);
-
-		expect(validateWavedata({ peaks: peaks.subarray(0, 29) })).toStrictEqual([
-			'Peaks length is 29 bytes, expected 30 for 2 pairs',
-		]);
-		expect(validateWavedata({ peaks: padded })).toStrictEqual([
-			'Peaks length is 31 bytes, expected 30 for 2 pairs',
-		]);
-		expect(
-			validateWavedata({ bands: bandsOf(1).subarray(0, 38), peaks: peaksOf([soundPair]) }),
-		).toStrictEqual(['Band data length is 38 bytes, expected 39 for 1 frames']);
+test('swapped minimum and maximum are reported', async () => {
+	const file = await damaged((bytes) => {
+		bytes[32 + 15] = 64;
+		bytes[32 + 15 + 1] = 0xc0;
 	});
 
-	test('reports each rule a pair breaks once, with how many break it and the first', () => {
-		const problems = validateWavedata({
-			peaks: peaksOf([soundPair, [20, -10, 5], [-10, 20, -1], [-10, 20, 21], [30, 10, 40]]),
-		});
-
-		expect(problems).toStrictEqual([
-			'Peaks have min above max in 2 pairs, the first at pair 1',
-			'Peaks have RMS below zero in 1 pairs, the first at pair 2',
-			'Peaks have RMS above the larger peak in 2 pairs, the first at pair 3',
-		]);
-	});
-
-	test('measures the RMS against the larger peak by size, so a pair clamped at -128 passes', () => {
-		expect(validateWavedata({ peaks: peaksOf([[-128, -128, 127]]) })).toStrictEqual([]);
-		expect(validateWavedata({ peaks: peaksOf([[-32, -32, 32]]) })).toStrictEqual([]);
-	});
-
-	test('reports two files cut at different rates', () => {
-		expect(
-			validateWavedata({ bands: bandsOf(1, 48_000), peaks: peaksOf([soundPair]) }),
-		).toStrictEqual(['Peaks sample rate is 44100, band data sample rate is 48000']);
-	});
-
-	test('reports a frame count that is not one per four pairs, rounded up', () => {
-		const fivePairs = Array.from({ length: 5 }, () => soundPair);
-
-		expect(validateWavedata({ bands: bandsOf(1), peaks: peaksOf(fivePairs) })).toStrictEqual([
-			'Band data frame count is 1, expected 2 for 5 pairs',
-		]);
-		expect(validateWavedata({ bands: bandsOf(3), peaks: peaksOf(fivePairs) })).toStrictEqual([
-			'Band data frame count is 3, expected 2 for 5 pairs',
-		]);
-	});
+	expect(validateWavedata(file)).toStrictEqual([
+		'The file has a minimum above the maximum in 1 pairs, the first at pair 4',
+	]);
 });

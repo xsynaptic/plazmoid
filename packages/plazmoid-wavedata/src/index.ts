@@ -1,18 +1,26 @@
+export type { AnalysisLayout } from '#analysis-arguments.ts';
 export { describeWavedata } from '#describe.ts';
-export type { BandsDescriptor, BandsFacts, PeaksDescriptor, PeaksFacts } from '#descriptor.ts';
-export { buildBands, buildPeaks, parseBandsHeader, parsePeaksHeader } from '#files.ts';
+export type { WavedataDescriptor, WavedataFacts, WavedataFileFacts } from '#descriptor.ts';
+export type { WavedataMode } from '#format.ts';
 export {
 	bandCount,
 	bandEdges,
-	bandsDecibelRange,
-	bandsHeaderBytes,
+	decibelRange,
 	formatVersion,
-	overviewFullScale,
-	peaksFieldCount,
-	peaksFullScale,
-	peaksHeaderBytes,
-	samplesPerFrame,
+	headerBytes,
+	modeCodes,
+	overviewBuckets,
+	pairsPerRecord,
+	recordBytes,
+	recordsPerChunk,
 	samplesPerPair,
+	samplesPerRecord,
 } from '#format.ts';
-export { framesByteRange, pairsByteRange, splitPairs } from '#slices.ts';
+export type { WavedataHeader } from '#header.ts';
+export { parseHeader } from '#header.ts';
+export { levelAmplitude } from '#levels.ts';
+export type { RecordTargets } from '#slices.ts';
+export { recordsByteRange, rmsRangeInSampleUnits, splitRecords } from '#slices.ts';
 export { validateWavedata } from '#validate.ts';
+export type { WavedataWriter, WavedataWriterOptions } from '#writer.ts';
+export { createWavedataWriter } from '#writer.ts';

@@ -1,127 +1,78 @@
-import { inspectBandsHeader, inspectPeaksHeader, toSigned } from '#files.ts';
-import {
-	bandCount,
-	bandsHeaderBytes,
-	peaksFieldCount,
-	peaksHeaderBytes,
-	samplesPerFrame,
-	samplesPerPair,
-} from '#format.ts';
+import type { WavedataHeader } from '#header.ts';
 
-interface FileShape {
-	cellBytes: number;
-	cellNoun: string;
-	headerBytes: number;
-	inspect: typeof inspectPeaksHeader;
-	label: string;
-}
+import { headerBytes, pairBytes, pairsPerRecord, recordBytes } from '#format.ts';
+import { inspectHeader } from '#header.ts';
 
-interface PairFault {
+interface Fault {
 	count: number;
 	first: number;
+	isBroken: (min: number, max: number, rms: number) => boolean;
 	rule: string;
 }
 
-const peaksShape: FileShape = {
-	cellBytes: peaksFieldCount,
-	cellNoun: 'pair',
-	headerBytes: peaksHeaderBytes,
-	inspect: inspectPeaksHeader,
-	label: 'Peaks',
-};
+// Structure only: a file whose values are scaled or rounded wrongly passes, and only the fixtures catch it
+export function validateWavedata(file: Uint8Array): Array<string> {
+	const { header, problems } = inspectHeader(file);
 
-const bandsShape: FileShape = {
-	cellBytes: bandCount,
-	cellNoun: 'frame',
-	headerBytes: bandsHeaderBytes,
-	inspect: inspectBandsHeader,
-	label: 'Band data',
-};
+	if (!header) return problems;
 
-const pairsPerFrame = samplesPerFrame / samplesPerPair;
+	const recordCount = Math.ceil(header.pairCount / pairsPerRecord);
+	const expected = headerBytes + recordCount * recordBytes(header.hasBands);
 
-export function validateWavedata({ bands, peaks }: { bands?: Uint8Array; peaks: Uint8Array }) {
-	const { header: peaksHeader, problems } = checkFile(peaks, peaksShape);
-
-	if (peaksHeader) problems.push(...pairProblems(peaks, peaksHeader.count));
-	if (bands === undefined) return problems;
-
-	const { header: bandsHeader, problems: bandsProblems } = checkFile(bands, bandsShape);
-
-	problems.push(...bandsProblems);
-
-	if (!peaksHeader || !bandsHeader) return problems;
-
-	if (peaksHeader.sampleRate !== bandsHeader.sampleRate) {
-		problems.push(
-			`Peaks sample rate is ${String(peaksHeader.sampleRate)}, band data sample rate is ${String(bandsHeader.sampleRate)}`,
-		);
+	if (file.length !== expected) {
+		return [
+			...problems,
+			`The file is ${String(file.length)} bytes, expected ${String(expected)} for ${String(header.pairCount)} pairs`,
+		];
 	}
 
-	const frames = Math.ceil(peaksHeader.count / pairsPerFrame);
-
-	if (bandsHeader.count !== frames) {
-		problems.push(
-			`Band data frame count is ${String(bandsHeader.count)}, expected ${String(frames)} for ${String(peaksHeader.count)} pairs`,
-		);
-	}
-
-	return problems;
+	return [...problems, ...pairProblems(file, header)];
 }
 
-function checkFile(bytes: Uint8Array, shape: FileShape) {
-	const { cellBytes, cellNoun, headerBytes, label } = shape;
-	const { count, problems, sampleRate } = shape.inspect(bytes);
-
-	if (count === undefined || sampleRate === undefined) return { header: undefined, problems };
-
-	if (sampleRate === 0) problems.push(`${label} sample rate is 0`);
-	if (count === 0) problems.push(`${label} ${cellNoun} count is 0`);
-
-	const expected = headerBytes + count * cellBytes;
-
-	if (bytes.length !== expected) {
-		problems.push(
-			`${label} length is ${String(bytes.length)} bytes, expected ${String(expected)} for ${String(count)} ${cellNoun}s`,
-		);
-	}
-
-	return { header: { count, sampleRate }, problems };
-}
-
-// In the order of the faults `pairProblems` counts
-function brokenRules(fields: Int8Array, at: number): Array<boolean> {
-	const min = fields[at] ?? 0;
-	const max = fields[at + 1] ?? 0;
-	const rms = fields[at + 2] ?? 0;
-
-	return [min > max, rms < 0, rms > Math.max(Math.abs(min), Math.abs(max))];
-}
-
-function pairProblems(peaks: Uint8Array, pairCount: number): Array<string> {
-	const fields = toSigned(peaks.subarray(peaksHeaderBytes));
-	const pairs = Math.min(pairCount, Math.floor(fields.length / peaksFieldCount));
-	const faults: Array<PairFault> = [
-		{ count: 0, first: 0, rule: 'min above max' },
-		{ count: 0, first: 0, rule: 'RMS below zero' },
-		{ count: 0, first: 0, rule: 'RMS above the larger peak' },
+function pairProblems(file: Uint8Array, { hasBands, pairCount }: WavedataHeader): Array<string> {
+	const fields = new Int8Array(file.buffer, file.byteOffset, file.length);
+	const recordSize = recordBytes(hasBands);
+	const slots = Math.ceil(pairCount / pairsPerRecord) * pairsPerRecord;
+	const stored: Array<Fault> = [
+		{ count: 0, first: 0, isBroken: (min, max) => min > max, rule: 'a minimum above the maximum' },
+		{
+			count: 0,
+			first: 0,
+			isBroken: (min, max, rms) => rms === 0 && (min !== 0 || max !== 0),
+			rule: 'a peak in digital silence',
+		},
+	];
+	const empty: Array<Fault> = [
+		{
+			count: 0,
+			first: 0,
+			isBroken: (min, max, rms) => min !== 0 || max !== 0 || rms !== 0,
+			rule: 'bytes past the pair count',
+		},
 	];
 
-	for (let pair = 0; pair < pairs; pair += 1) {
-		const broken = brokenRules(fields, pair * peaksFieldCount);
+	for (let slot = 0; slot < slots; slot += 1) {
+		const record = Math.floor(slot / pairsPerRecord);
+		const at = headerBytes + record * recordSize + (slot % pairsPerRecord) * pairBytes;
 
-		for (const [index, fault] of faults.entries()) {
-			if (broken[index] !== true) continue;
-			if (fault.count === 0) fault.first = pair;
-
-			fault.count += 1;
-		}
+		tally(slot < pairCount ? stored : empty, slot, fields.subarray(at, at + pairBytes));
 	}
 
-	return faults
+	return [...stored, ...empty]
 		.filter((fault) => fault.count > 0)
 		.map(
 			(fault) =>
-				`Peaks have ${fault.rule} in ${String(fault.count)} pairs, the first at pair ${String(fault.first)}`,
+				`The file has ${fault.rule} in ${String(fault.count)} pairs, the first at pair ${String(fault.first)}`,
 		);
+}
+
+function tally(faults: Array<Fault>, slot: number, pair: Int8Array): void {
+	const [min = 0, max = 0, rms = 0] = pair;
+
+	for (const fault of faults) {
+		if (!fault.isBroken(min, max, rms)) continue;
+		if (fault.count === 0) fault.first = slot;
+
+		fault.count += 1;
+	}
 }

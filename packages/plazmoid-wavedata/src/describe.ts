@@ -1,105 +1,57 @@
-import type { BandsFacts, PeaksFacts } from '#descriptor.ts';
+import type { WavedataFileFacts } from '#descriptor.ts';
 
-import { parseBandsHeader, parsePeaksHeader, toSigned } from '#files.ts';
 import {
 	bandCount,
-	bandsDecibelRange,
-	bandsHeaderBytes,
 	formatVersion,
-	peaksFieldCount,
-	peaksFullScale,
-	peaksHeaderBytes,
-	samplesPerFrame,
-	samplesPerPair,
+	headerBytes,
+	levelFullScale,
+	pairBytes,
+	pairsPerRecord,
+	recordBytes,
 } from '#format.ts';
-
-const rangeFloor = peaksFullScale * 10 ** (-60 / 20);
-const quietShare = 0.1;
-const loudShare = 0.95;
-const medianShare = 0.5;
+import { parseHeader } from '#header.ts';
+import { medianOf, rmsRangeOf } from '#levels.ts';
 
 const rmsField = 2;
+const bandsAt = pairsPerRecord * pairBytes;
 
-export function describeWavedata(files: {
-	bands: Uint8Array;
-	peaks: Uint8Array;
-}): PeaksFacts & { bands: BandsFacts };
-export function describeWavedata(files: { bands?: Uint8Array; peaks: Uint8Array }): PeaksFacts;
-export function describeWavedata({
-	bands,
-	peaks,
-}: {
-	bands?: Uint8Array;
-	peaks: Uint8Array;
-}): PeaksFacts {
-	const { pairCount, sampleRate } = parsePeaksHeader(peaks);
-	const fields = toSigned(peaks.subarray(peaksHeaderBytes));
-	if (fields.length < pairCount * peaksFieldCount) throw new Error('Peaks are truncated');
+export function describeWavedata(file: Uint8Array): WavedataFileFacts {
+	const { hasBands, mode, pairCount, sampleRate } = parseHeader(file);
+	const recordSize = recordBytes(hasBands);
+	const recordCount = Math.ceil(pairCount / pairsPerRecord);
 
-	const facts: PeaksFacts = {
-		byteOffset: peaksHeaderBytes,
-		formatVersion,
-		pairCount,
-		pairsPerSecond: sampleRate / samplesPerPair,
-		rmsRange: levelRange(fields, pairCount),
-	};
-
-	return bands === undefined ? facts : { ...facts, bands: describeBands(bands) };
-}
-
-function describeBands(bands: Uint8Array): BandsFacts {
-	const { frameCount, sampleRate } = parseBandsHeader(bands);
-	const levels = bands.subarray(bandsHeaderBytes);
-	if (levels.length < frameCount * bandCount) throw new Error('Band data is truncated');
-
-	const medians: Array<number> = [];
-
-	for (let band = 0; band < bandCount; band += 1) {
-		const counts = new Uint32Array(256);
-
-		for (let frame = 0; frame < frameCount; frame += 1) {
-			const level = levels[frame * bandCount + band] ?? 0;
-
-			counts[level] = (counts[level] ?? 0) + 1;
-		}
-
-		medians.push(levelAtShare(counts, medianShare, 1));
+	if (file.length < headerBytes + recordCount * recordSize) {
+		throw new Error('The file is truncated');
 	}
 
-	return {
-		bandCount,
-		byteOffset: bandsHeaderBytes,
-		frameCount,
-		framesPerSecond: sampleRate / samplesPerFrame,
-		medians,
-		minDecibels: -bandsDecibelRange,
-	};
-}
-
-function levelRange(fields: Int8Array, pairCount: number): [quiet: number, loud: number] {
-	const counts = new Uint32Array(peaksFullScale);
+	const rmsCounts = new Uint32Array(levelFullScale + 1);
 
 	for (let pair = 0; pair < pairCount; pair += 1) {
-		const rms = fields[pair * peaksFieldCount + rmsField] ?? 0;
+		const record = Math.floor(pair / pairsPerRecord);
+		const slot = pair % pairsPerRecord;
 
-		if (rms > rangeFloor) counts[rms] = (counts[rms] ?? 0) + 1;
+		tally(rmsCounts, file[headerBytes + record * recordSize + slot * pairBytes + rmsField]);
 	}
 
-	return [levelAtShare(counts, quietShare, 0), levelAtShare(counts, loudShare, 0)];
+	const facts = { formatVersion, mode, pairCount, rmsRange: rmsRangeOf(rmsCounts), sampleRate };
+
+	if (!hasBands) return facts;
+
+	const [low = 0, mid = 0, high = 0] = Array.from({ length: bandCount }, (_, band) => {
+		const counts = new Uint32Array(levelFullScale + 1);
+
+		for (let record = 0; record < recordCount; record += 1) {
+			tally(counts, file[headerBytes + record * recordSize + bandsAt + band]);
+		}
+
+		return medianOf(counts);
+	});
+
+	return { ...facts, bands: { medians: [low, mid, high] } };
 }
 
-function levelAtShare(counts: Uint32Array, share: number, lowest: number): number {
-	let total = 0;
+function tally(counts: Uint32Array, level: number | undefined): void {
+	if (level === undefined) return;
 
-	for (let level = lowest; level < counts.length; level += 1) total += counts[level] ?? 0;
-
-	const rank = Math.max(1, Math.ceil(share * total));
-	let seen = 0;
-
-	for (let level = lowest; level < counts.length; level += 1) {
-		seen += counts[level] ?? 0;
-		if (total > 0 && seen >= rank) return level;
-	}
-
-	return 0;
+	counts[level] = (counts[level] ?? 0) + 1;
 }

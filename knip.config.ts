@@ -8,5 +8,9 @@ export default {
 			// The e2e page's script, loaded by the page's own HTML
 			entry: ['verify/e2e/page/host.ts'],
 		},
+		'packages/plazmoid-wavedata': {
+			// The cross-check tests run them when installed, and skip otherwise
+			ignoreBinaries: ['audiowaveform', 'ffmpeg'],
+		},
 	},
 } satisfies KnipConfig;
