@@ -1,12 +1,14 @@
 import type { CuePoint } from '@xsynaptic/plazmoid-core';
 
+import { formatVersion } from '@xsynaptic/plazmoid-wavedata';
 import { SonicWavestrip } from '@xsynaptic/sonic-ui';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { landDetail, mount, sampleTrack } from '#test/mount.ts';
+import { sampleWaveform } from '#test/wavedata.ts';
 
-// Bytes 51, 255, 153 and 0
-const overview = 'M/+ZAA==';
+// Bytes 170, 85 and 0: −20 dB, −40 dB and silence; no address, since the strip needs none
+const { url: _url, ...waveform } = sampleWaveform('a', { overview: 'qlUA' });
 
 function cue(startSeconds: number): CuePoint {
 	return { artistLine: 'Forest Signal', startSeconds, title: String(startSeconds) };
@@ -22,7 +24,7 @@ function mountSlider(options: {
 
 	mounted.store.getState().playTrack([track], 'a');
 	landDetail(mounted.store, 'a', {
-		waveformOverview: overview,
+		waveform,
 		...(options.cuePoints === undefined ? {} : { cuePoints: options.cuePoints }),
 	});
 	mounted.fake.callbacks.current?.onTime(options.currentTimeSeconds);
@@ -97,7 +99,9 @@ describe('<pzm-time-slider>', () => {
 		expect(strip.value).toBe(50);
 		expect(strip.disabled).toBe(false);
 		expect(strip.getAttribute('aria-hidden')).toBe('false');
-		expect(strip.peaks).toEqual(Float32Array.from([0.2, 1, 0.6, 0]));
+		expect(Array.from(strip.peaks ?? [], (peak) => Number(peak.toFixed(4)))).toStrictEqual([
+			1, 0.1, 0,
+		]);
 	});
 
 	test('seeks once to where the strip commits', () => {
@@ -214,7 +218,7 @@ describe('<pzm-time-slider>', () => {
 		const { part, store } = mount('pzm-time-slider');
 
 		store.getState().loadQueue([sampleTrack('a', { durationMs: 200_000 })]);
-		landDetail(store, 'a', { cuePoints: [cue(50)], waveformOverview: overview });
+		landDetail(store, 'a', { cuePoints: [cue(50)], waveform });
 
 		const strip = requireStrip(part);
 
@@ -230,24 +234,21 @@ describe('<pzm-time-slider>', () => {
 		expect(readout(part)).toBe('|Forest Signal|50');
 	});
 
-	test('draws the overview for a detail whose peaks are of an unknown format version', () => {
+	test('draws no overview from a descriptor of a format version it does not know', () => {
 		const { store, strip } = mountSlider({ currentTimeSeconds: 0, durationSeconds: 200 });
-		const drawn = strip.peaks;
 
-		expect(drawn).toBeDefined();
-		landDetail(store, 'a', {
-			peaks: {
-				byteOffset: 24,
-				formatVersion: 2,
-				pairCount: 20_000,
-				pairsPerSecond: 100,
-				rmsRange: [4, 40],
-				url: 'https://api.test/a.peaks.bin',
-			},
-			waveformOverview: overview,
-		});
+		expect(strip.peaks).toBeDefined();
+		landDetail(store, 'a', { waveform: { ...waveform, formatVersion: formatVersion + 1 } });
 
-		expect(strip.peaks).toStrictEqual(drawn);
+		expect(strip.peaks).toBeUndefined();
+	});
+
+	test('draws a plain groove for an overview past the 400-bucket ceiling rather than throwing', () => {
+		const { store, strip } = mountSlider({ currentTimeSeconds: 0, durationSeconds: 200 });
+
+		landDetail(store, 'a', { waveform: { ...waveform, overview: btoa('\u{FF}'.repeat(200_000)) } });
+
+		expect(strip.peaks).toBeUndefined();
 	});
 
 	test('clears the last peaks on the same strip for a track measured without them', () => {

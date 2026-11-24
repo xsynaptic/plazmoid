@@ -1,4 +1,5 @@
 import { getByRole } from '@testing-library/dom';
+import { formatVersion } from '@xsynaptic/plazmoid-wavedata';
 import { SonicWaveform } from '@xsynaptic/sonic-ui';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
@@ -6,7 +7,7 @@ import { panelSurfaceModule } from '#elements/panel/panel-module.ts';
 import { defaultLabels } from '#labels.ts';
 import { LazyModuleError } from '#lib/lazy-module.ts';
 import { landDetail, mount, sampleTrack } from '#test/mount.ts';
-import { chunkOf, offline, stubPeaksFetch } from '#test/peaks-fetch.ts';
+import { chunkOf, offline, sampleWaveform, stubWavedataFetch } from '#test/wavedata.ts';
 
 function mountPanel() {
 	const mounted = mount('pzm-panel');
@@ -19,16 +20,7 @@ function mountPanel() {
 		);
 
 	for (const trackId of ['a', 'b']) {
-		landDetail(mounted.store, trackId, {
-			peaks: {
-				byteOffset: 24,
-				formatVersion: 1,
-				pairCount: 20_000,
-				pairsPerSecond: 100,
-				rmsRange: [4, 40],
-				url: `https://api.test/${trackId}.peaks.bin`,
-			},
-		});
+		landDetail(mounted.store, trackId, { waveform: sampleWaveform(trackId) });
 	}
 
 	return mounted;
@@ -75,7 +67,7 @@ describe('<pzm-panel>', () => {
 	});
 
 	test('draws the next track from its own peaks, and keeps the one it has through a zoom', async () => {
-		const { urls } = stubPeaksFetch(offline);
+		const { urls } = stubWavedataFetch(offline);
 		const mounted = mountPanel();
 		const waveform = await openPanel(mounted);
 		const { peaks } = waveform;
@@ -87,24 +79,32 @@ describe('<pzm-panel>', () => {
 		expect(waveform.peaks).not.toBe(peaks);
 
 		void waveform.requestPeaks?.(0, 1);
-		expect(urls()).toStrictEqual(['https://api.test/b.peaks.bin']);
+		expect(urls()).toStrictEqual(['https://files.test/waveform/b.wavedata']);
 	});
 
 	test('opens no reader for a descriptor of a format version it does not know', async () => {
-		const { urls } = stubPeaksFetch(offline);
+		const { urls } = stubWavedataFetch(offline);
 		const mounted = mount('pzm-panel');
 
 		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
 		landDetail(mounted.store, 'a', {
-			peaks: {
-				byteOffset: 24,
-				formatVersion: 2,
-				pairCount: 20_000,
-				pairsPerSecond: 100,
-				rmsRange: [4, 40],
-				url: 'https://api.test/a.peaks.bin',
-			},
+			waveform: sampleWaveform('a', { formatVersion: formatVersion + 1 }),
 		});
+
+		const waveform = await openPanel(mounted);
+
+		expect(waveform.peaks).toBeUndefined();
+		expect(waveform.requestPeaks).toBeUndefined();
+		expect(urls()).toStrictEqual([]);
+	});
+
+	test('opens no reader for a descriptor without an address, which carries the overview alone', async () => {
+		const { urls } = stubWavedataFetch(offline);
+		const mounted = mount('pzm-panel');
+		const { url: _url, ...overviewOnly } = sampleWaveform('a');
+
+		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
+		landDetail(mounted.store, 'a', { waveform: overviewOnly });
 
 		const waveform = await openPanel(mounted);
 
@@ -115,7 +115,7 @@ describe('<pzm-panel>', () => {
 
 	test('settles a request for a failed chunk as its wait ends, so asking again lands the samples', async () => {
 		const responses = [offline, () => chunkOf(7)];
-		const { chunkRequests } = stubPeaksFetch(() => (responses.shift() ?? offline)());
+		const { chunkRequests } = stubWavedataFetch(() => (responses.shift() ?? offline)());
 
 		const waveform = await openPanel(mountPanel());
 		const request = await vi.waitFor(() => {
@@ -163,29 +163,16 @@ describe('<pzm-panel>', () => {
 	});
 
 	test('tints the loaded track with its bands and draws its body', async () => {
-		stubPeaksFetch(offline);
+		stubWavedataFetch(offline);
 
 		const mounted = mount('pzm-panel');
 
 		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
 		landDetail(mounted.store, 'a', {
-			peaks: {
-				bands: {
-					bandCount: 3,
-					byteOffset: 36,
-					frameCount: 5000,
-					framesPerSecond: 25,
-					medians: [180, 140, 100],
-					minDecibels: -60,
-					url: 'https://api.test/tinted.bands.bin',
-				},
-				byteOffset: 24,
-				formatVersion: 1,
-				pairCount: 20_000,
-				pairsPerSecond: 100,
-				rmsRange: [4, 40],
-				url: 'https://api.test/tinted.peaks.bin',
-			},
+			waveform: sampleWaveform('tinted', {
+				bands: { medians: [180, 140, 100] },
+				rmsRange: [0, 255],
+			}),
 		});
 
 		const waveform = await openPanel(mounted);
@@ -193,7 +180,7 @@ describe('<pzm-panel>', () => {
 		expect(waveform.bands).toMatchObject({ bandCount: 3, framesPerSecond: 25 });
 		expect(waveform.bands?.medians).toEqual([180, 140, 100]);
 		expect(waveform.peaks?.rms).toHaveLength(20_000);
-		expect(waveform.peaks?.rmsRange).toEqual([4, 40]);
+		expect(waveform.peaks?.rmsRange).toEqual([0, 128]);
 	});
 
 	test('takes its tint cell from the tokens, leaving out a reading set to none', async () => {

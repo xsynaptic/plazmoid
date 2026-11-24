@@ -1,4 +1,4 @@
-import type { BandsDescriptor, PeaksDescriptor } from '@xsynaptic/plazmoid-wavedata';
+import type { WavedataDescriptor } from '@xsynaptic/plazmoid-wavedata';
 
 import type { Track, TrackDetail } from '#types.ts';
 
@@ -13,31 +13,30 @@ const trackChecks: FieldChecks = {
 	releaseHref: (value) => typeof value === 'string',
 };
 
-const peaksChecks = {
-	byteOffset: isCount,
+const bandsChecks = {
+	medians: (field) =>
+		Array.isArray(field) && field.length === 3 && isArrayOf(field, isFiniteNumber),
+} satisfies Record<keyof NonNullable<WavedataDescriptor['bands']>, FieldChecks[string]>;
+
+const waveformChecks = {
+	bands: (field) => field === undefined || hasFields(field, bandsChecks),
 	formatVersion: isCount,
-	pairCount: isCount,
-	pairsPerSecond: isPositiveNumber,
+	mode: (field) => typeof field === 'string',
+	overview: (field) => typeof field === 'string',
+	pairCount: (field) => isCount(field) && field > 0,
 	rmsRange: (field) =>
 		Array.isArray(field) && field.length === 2 && field.every((end) => isFiniteNumber(end)),
-	url: (field) => typeof field === 'string',
-} satisfies Record<Exclude<keyof PeaksDescriptor, 'bands'>, FieldChecks[string]>;
-
-const bandsChecks = {
-	bandCount: (field) => isCount(field) && field !== 0,
-	byteOffset: isCount,
-	frameCount: isCount,
-	framesPerSecond: isPositiveNumber,
-	medians: (field) => isArrayOf(field, isFiniteNumber),
-	minDecibels: isFiniteNumber,
-	url: (field) => typeof field === 'string',
-} satisfies Record<keyof BandsDescriptor, FieldChecks[string]>;
+	sampleRate: isPositiveNumber,
+	url: (field) => field === undefined || typeof field === 'string',
+} satisfies Record<keyof WavedataDescriptor, FieldChecks[string]>;
 
 const detailChecks: FieldChecks = {
 	cuePoints: (value) => isArrayOf(value, isCuePoint),
-	peaks: isPeaks,
+	// Version 1's waveform fields, dropped from a detail stored before version 2
+	peaks: () => false,
 	trackCount: isCount,
-	waveformOverview: (value) => typeof value === 'string',
+	waveform: (value) => hasFields(value, waveformChecks),
+	waveformOverview: () => false,
 };
 
 export function toStoredDetail(value: unknown): TrackDetail | undefined {
@@ -66,15 +65,6 @@ function hasFields(value: unknown, checks: FieldChecks): boolean {
 function hasOptionalFields(value: Record<string, unknown>, checks: FieldChecks): boolean {
 	return Object.entries(checks).every(
 		([key, isValid]) => value[key] === undefined || isValid(value[key]),
-	);
-}
-
-function isPeaks(value: unknown): boolean {
-	if (!isRecord(value)) return false;
-
-	return (
-		hasFields(value, peaksChecks) &&
-		(value.bands === undefined || hasFields(value.bands, bandsChecks))
 	);
 }
 

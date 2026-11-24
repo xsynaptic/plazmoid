@@ -23,7 +23,7 @@ const servers = [
 			String(pagePort),
 			'--strictPort',
 			'--open',
-			'/?peaks&cued',
+			'/?waveform&cued',
 		],
 		{ stdio: 'inherit' },
 	),

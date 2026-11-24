@@ -20,6 +20,7 @@ import { labelPlacement } from '#elements/time-slider/label-placement.ts';
 import { formatSpokenPosition } from '#elements/time-slider/spoken-time.ts';
 import { requireChild, template } from '#lib/render.ts';
 import { toStripMarkers } from '#waveform/cue-markers.ts';
+import { knownWaveform } from '#waveform/known-waveform.ts';
 import { decodeOverview } from '#waveform/overview-values.ts';
 
 interface Readout {
@@ -191,7 +192,7 @@ function selectStrip(state: PlayerStore): StripView {
 		cuePoints: detail?.cuePoints,
 		durationSeconds: state.durationSeconds,
 		isLoaded: isLoaded(state),
-		overview: detail?.waveformOverview,
+		overview: knownWaveform(detail)?.overview,
 	};
 }
 

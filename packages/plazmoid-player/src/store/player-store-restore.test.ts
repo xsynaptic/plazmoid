@@ -73,16 +73,26 @@ const writtenCuePoints = fc.array(
 	{ maxLength: 4 },
 );
 
-const writtenPeaks = fc.record(
+const writtenLevel = fc.integer({ max: 255, min: 0 });
+
+const writtenWaveform = fc.record(
 	{
-		byteOffset: fc.integer({ max: 64, min: 0 }),
+		bands: fc.record(
+			{ medians: fc.tuple(writtenLevel, writtenLevel, writtenLevel) },
+			{ noNullPrototype: true },
+		),
 		formatVersion: fc.integer({ max: 4, min: 0 }),
-		pairCount: fc.integer({ max: 20_000, min: 0 }),
-		pairsPerSecond: fc.integer({ max: 200, min: 1 }),
-		rmsRange: fc.tuple(fc.integer({ max: 20, min: 0 }), fc.integer({ max: 127, min: 20 })),
+		mode: fc.constantFrom('average', 'overall'),
+		overview: fc.base64String({ maxLength: 400 }),
+		pairCount: fc.integer({ max: 20_000, min: 1 }),
+		rmsRange: fc.tuple(writtenLevel, writtenLevel),
+		sampleRate: fc.integer({ max: 96_000, min: 1 }),
 		url: fc.webUrl(),
 	},
-	{ noNullPrototype: true },
+	{
+		noNullPrototype: true,
+		requiredKeys: ['formatVersion', 'mode', 'overview', 'pairCount', 'rmsRange', 'sampleRate'],
+	},
 );
 
 const storedTrackFields = fc.record({
@@ -99,9 +109,8 @@ const storedDetailFields = fc.record({
 		writtenCuePoints,
 		withOneFieldBroken(firstOf(writtenCuePoints)).map((cue) => [cue]),
 	),
-	peaks: optionalField(writtenPeaks, withOneFieldBroken(writtenPeaks)),
 	trackCount: optionalField(fc.integer({ max: 40, min: 0 })),
-	waveformOverview: optionalField(fc.base64String()),
+	waveform: optionalField(writtenWaveform, withOneFieldBroken(writtenWaveform)),
 });
 
 type StoredFields = Record<string, undefined | { isWritten: boolean; value: unknown }>;
@@ -197,7 +206,7 @@ describe('restoring a stored queue', () => {
 			root.append(document.createElement('pzm-bar'));
 			document.body.append(root);
 			currentCue(state);
-			if (detail?.peaks) openPeaks(detail.peaks);
+			if (detail?.waveform?.url !== undefined) openPeaks(detail.waveform.url, detail.waveform);
 
 			root.remove();
 			unbind();

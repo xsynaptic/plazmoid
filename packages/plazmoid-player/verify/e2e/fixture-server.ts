@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 
 import { fixturePort } from '#e2e/constants.ts';
-import { fixturePeaks } from '#e2e/fixture-peaks.ts';
+import { writeFixtureWavedata } from '#e2e/fixture-wavedata.ts';
 
 interface LoggedRequest {
 	path: string;
@@ -25,11 +25,12 @@ const contentTypes: Record<string, string> = {
 
 const garbage = randomBytes(256 * 1024);
 
-const problems = validateWavedata({ peaks: fixturePeaks });
+const { file } = writeFixtureWavedata();
+const problems = validateWavedata(file);
 
-if (problems.length > 0) throw new Error(`The fixture Peaks are invalid: ${problems.join('; ')}`);
+if (problems.length > 0) throw new Error(`The fixture wavedata is invalid: ${problems.join('; ')}`);
 
-const peaks = Buffer.from(fixturePeaks.buffer, fixturePeaks.byteOffset, fixturePeaks.byteLength);
+const wavedata = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
 
 // Per page run, so parallel tests read only their own requests
 const requestLog = new Map<string, Array<LoggedRequest>>();
@@ -91,14 +92,14 @@ async function respond(
 				.end(JSON.stringify(requestLog.get(run) ?? []));
 			return 200;
 		}
-		case 'peaks': {
-			return sendBody(request, response, { body: peaks, type: contentType(name) });
-		}
 		case 'stalled': {
 			if (stalledRuns.has(`${run}/${name}`)) return sendFile(request, response, name);
 
 			stalledRuns.add(`${run}/${name}`);
 			return undefined;
+		}
+		case 'wavedata': {
+			return sendBody(request, response, { body: wavedata, type: contentType(name) });
 		}
 		default: {
 			response.writeHead(404).end();

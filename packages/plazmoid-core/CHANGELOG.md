@@ -1,5 +1,11 @@
 # @xsynaptic/plazmoid-core
 
+## 0.3.0
+
+### Minor Changes
+
+- `TrackDetail.waveform` carries the wavedata version 2 descriptor, overview included, replacing `peaks` and `waveformOverview`.
+
 ## 0.2.0
 
 ### Minor Changes

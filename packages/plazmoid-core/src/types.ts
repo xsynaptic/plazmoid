@@ -1,4 +1,4 @@
-import type { PeaksDescriptor } from '@xsynaptic/plazmoid-wavedata';
+import type { WavedataDescriptor } from '@xsynaptic/plazmoid-wavedata';
 
 // Reported beside the statuses, never in place of one
 export type EngineDiagnostic = MediaSnapshot &
@@ -64,11 +64,9 @@ export interface Track {
 export interface TrackDetail {
 	// Timestamped tracks, in order
 	cuePoints?: ReadonlyArray<CuePoint>;
-	peaks?: PeaksDescriptor;
 	// Every section the track has, so cue points covering part of it can say where they run out
 	trackCount?: number;
-	// Base64 of one byte per bucket, 255 at the loudest; absent draws a plain groove
-	waveformOverview?: string;
+	waveform?: WavedataDescriptor;
 }
 
 export type StreamResolution =

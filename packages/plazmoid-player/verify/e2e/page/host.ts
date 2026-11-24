@@ -11,10 +11,9 @@ import type { AstroPlayer } from '@xsynaptic/plazmoid-player/astro';
 
 import { startAstroPlayer } from '@xsynaptic/plazmoid-player/astro';
 import stylesheetUrl from '@xsynaptic/plazmoid-player/player.css?url';
-import { describeWavedata } from '@xsynaptic/plazmoid-wavedata';
 
 import { fixtureOrigin, seekSeconds } from '#e2e/constants.ts';
-import { fixturePeaks } from '#e2e/fixture-peaks.ts';
+import { writeFixtureWavedata } from '#e2e/fixture-wavedata.ts';
 import { defaultLabels } from '#labels.ts';
 
 interface PlayerPage {
@@ -32,13 +31,6 @@ declare global {
 
 const cued: TrackDetail = {
 	cuePoints: [{ artistLine: 'Cue Artist', startSeconds: 20, title: 'Cue Title' }],
-	waveformOverview: btoa(
-		String.fromCodePoint(
-			...Array.from({ length: 64 }, (_, index) =>
-				Math.round(255 * (0.3 + 0.5 * Math.abs(Math.sin(index / 5)))),
-			),
-		),
-	),
 };
 
 const fixtures = {
@@ -59,18 +51,17 @@ const settings = {
 	bindDelay: Number(parameters.get('bindDelay') ?? 0),
 	detail: readChoice('detail', ['answer', 'hang']),
 	hasFallback: parameters.has('fallback'),
-	hasPeaks: parameters.has('peaks'),
+	hasWaveform: parameters.has('waveform'),
 	isCued: parameters.has('cued'),
-	peaksVersion: readNumber('peaksVersion'),
 	rows: (parameters.get('rows') ?? 'long,short').split(',').filter((row) => isFixture(row)),
 	run: parameters.get('run') ?? 'manual',
 	stream: readChoice('stream', ['audio', 'missing', 'garbage', 'hang', 'flaky', 'stalled']),
 	type: readChoice('type', ['capital', 'lowercase']),
+	waveformVersion: readNumber('waveformVersion'),
 };
 
-const { byteOffset, formatVersion, pairCount, pairsPerSecond, rmsRange } = describeWavedata({
-	peaks: fixturePeaks,
-});
+const waveformFacts =
+	settings.hasWaveform || settings.isCued ? writeFixtureWavedata().facts : undefined;
 
 let resolveCount = 0;
 
@@ -88,25 +79,24 @@ const urls: PlayerUrls = {
 };
 
 function detailOf({ trackId }: Track): TrackDetail {
+	const waveform = waveformOf(trackId);
+
+	return { ...(settings.isCued ? cued : {}), ...(waveform ? { waveform } : {}) };
+}
+
+function waveformOf(trackId: string): TrackDetail['waveform'] {
+	if (!waveformFacts) return undefined;
+	if (!settings.hasWaveform) return waveformFacts;
+
 	return {
-		...(settings.isCued ? cued : {}),
-		...(settings.hasPeaks
-			? {
-					peaks: {
-						byteOffset,
-						formatVersion: settings.peaksVersion ?? formatVersion,
-						pairCount,
-						pairsPerSecond,
-						rmsRange,
-						url: peaksUrl(trackId),
-					},
-				}
-			: {}),
+		...waveformFacts,
+		formatVersion: settings.waveformVersion ?? waveformFacts.formatVersion,
+		url: wavedataUrl(trackId),
 	};
 }
 
-function peaksUrl(trackId: string): string {
-	const url = new URL(`/peaks/${trackId}.peaks.bin`, fixtureOrigin);
+function wavedataUrl(trackId: string): string {
+	const url = new URL(`/wavedata/${trackId}.wavedata`, fixtureOrigin);
 
 	url.searchParams.set('run', settings.run);
 

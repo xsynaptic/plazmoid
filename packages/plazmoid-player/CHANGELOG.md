@@ -1,5 +1,11 @@
 # @xsynaptic/plazmoid-player
 
+## 0.3.0
+
+### Minor Changes
+
+- Reads wavedata version 2 in one range per chunk and draws the overview from its absolute levels; version 1 is no longer read.
+
 ## 0.2.0
 
 ### Minor Changes

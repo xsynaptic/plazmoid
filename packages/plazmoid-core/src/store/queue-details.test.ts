@@ -11,7 +11,16 @@ import { createMemoryStorage } from '#lib/storage.ts';
 import { createWritablePlayerStore } from '#store/player-store.ts';
 import { isDetailPending } from '#store/selectors.ts';
 
-const strip: TrackDetail = { waveformOverview: 'M8w=' };
+const waveform = {
+	formatVersion: 2,
+	mode: 'overall',
+	overview: 'M8w=',
+	pairCount: 2,
+	rmsRange: [204, 207],
+	sampleRate: 44_100,
+} as const satisfies TrackDetail['waveform'];
+
+const strip: TrackDetail = { waveform };
 
 function makeTrack(trackId: string): Track {
 	return { artistLine: 'Nebula Drift', releaseTitle: 'Cosmic Drift', title: trackId, trackId };
@@ -272,33 +281,30 @@ describe('detail persistence', () => {
 		expect(second.getState().details.get('b')).toStrictEqual({ trackCount: 9 });
 	});
 
-	test('restores a detail stored before the format version without its peaks, and the answer replaces it', async () => {
+	test("restores a detail stored by version 1 without that version's waveform fields, and the answer replaces it", async () => {
 		const cuePoints = [{ artistLine: 'Nebula Drift', startSeconds: 0, title: 'Opening' }];
-		const unversioned = {
+		const versionOne = {
 			byteOffset: 24,
+			formatVersion: 1,
 			pairCount: 10,
 			pairsPerSecond: 172.265625,
 			rmsRange: [32, 127],
 			url: 'https://api.test/a.peaks',
 		};
-		const answered: TrackDetail = {
-			...strip,
-			cuePoints,
-			peaks: { ...unversioned, formatVersion: 1, rmsRange: [32, 127] },
-		};
+		const answered: TrackDetail = { cuePoints, waveform };
 		const first = createStore(() => Promise.resolve(strip), { isPersistent: true });
 
 		first.getState().loadQueue([makeTrack('a')]);
 		await settle();
 		localStorage.setItem(
 			queueDetailStorageKey,
-			JSON.stringify({ a: { ...strip, cuePoints, peaks: unversioned } }),
+			JSON.stringify({ a: { cuePoints, peaks: versionOne, waveformOverview: 'M8w=' } }),
 		);
 
 		const answer = Promise.withResolvers<TrackDetail>();
 		const second = createStore(() => answer.promise, { isPersistent: true });
 
-		expect(second.getState().details.get('a')).toStrictEqual({ ...strip, cuePoints });
+		expect(second.getState().details.get('a')).toStrictEqual({ cuePoints });
 
 		answer.resolve(answered);
 		await settle();
@@ -346,7 +352,7 @@ describe('detail persistence', () => {
 	});
 
 	test('replaces a restored detail with a newer answer, in the store and in storage', async () => {
-		const newer: TrackDetail = { waveformOverview: 'gIA=' };
+		const newer: TrackDetail = { waveform: { ...waveform, overview: 'gIA=' } };
 		const first = createStore(() => Promise.resolve(strip), { isPersistent: true });
 
 		first.getState().loadQueue([makeTrack('a')]);

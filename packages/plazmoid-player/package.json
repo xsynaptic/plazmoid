@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/plazmoid-player",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "The interface for the Plazmoid audio player",
 	"keywords": [
 		"audio-player",

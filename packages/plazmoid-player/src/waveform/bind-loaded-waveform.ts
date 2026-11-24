@@ -5,7 +5,7 @@ import { bind, loadedDetail, loadedTrack, toDurationSeconds } from '@xsynaptic/p
 
 import type { PeaksReader } from '#waveform/waveform-peaks.ts';
 
-import { knownPeaks } from '#waveform/known-peaks.ts';
+import { knownWaveform } from '#waveform/known-waveform.ts';
 import { applyTintCell } from '#waveform/tint-cell.ts';
 import { openPeaks } from '#waveform/waveform-peaks.ts';
 
@@ -37,9 +37,9 @@ export function bindLoadedWaveform(
 	waveform.readTime = store.getState().getCurrentTime;
 	bind(
 		store,
-		(state) => knownPeaks(loadedDetail(state)),
+		(state) => knownWaveform(loadedDetail(state)),
 		(source) => {
-			reader = source && openPeaks(source);
+			reader = source?.url === undefined ? undefined : openPeaks(source.url, source);
 			feedReader(waveform, reader, options);
 			showDuration();
 		},

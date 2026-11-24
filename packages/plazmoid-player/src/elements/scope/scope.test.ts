@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { scopeSurfaceModule } from '#elements/scope/scope-module.ts';
 import { landDetail, mount, sampleTrack } from '#test/mount.ts';
+import { sampleWaveform } from '#test/wavedata.ts';
 
 function mountPlaying(width: number) {
 	Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', {
@@ -76,23 +77,7 @@ describe('<pzm-scope>', () => {
 		const { fake, part, store } = mountPlaying(96);
 
 		landDetail(store, 'a', {
-			peaks: {
-				bands: {
-					bandCount: 3,
-					byteOffset: 36,
-					frameCount: 5000,
-					framesPerSecond: 25,
-					medians: [180, 140, 100],
-					minDecibels: -60,
-					url: 'https://api.test/scope.bands.bin',
-				},
-				byteOffset: 24,
-				formatVersion: 1,
-				pairCount: 20_000,
-				pairsPerSecond: 100,
-				rmsRange: [4, 40],
-				url: 'https://api.test/scope.peaks.bin',
-			},
+			waveform: sampleWaveform('scope', { bands: { medians: [180, 140, 100] } }),
 		});
 		fake.callbacks.current?.onStatus('playing');
 
