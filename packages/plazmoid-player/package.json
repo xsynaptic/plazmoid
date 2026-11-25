@@ -88,7 +88,7 @@
 		"@playwright/test": "^1.65.1",
 		"@testing-library/dom": "^10.4.2",
 		"@xsynaptic/plazmoid-core": "workspace:^",
-		"@xsynaptic/sonic-ui": "~0.32.0",
+		"@xsynaptic/sonic-ui": "~0.32.1",
 		"publint": "^0.3.25",
 		"tsdown": "^0.23.7",
 		"typescript": "^6.0.3",
