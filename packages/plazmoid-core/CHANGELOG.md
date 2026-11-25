@@ -1,5 +1,11 @@
 # @xsynaptic/plazmoid-core
 
+## 0.5.0
+
+### Minor Changes
+
+- Add `PlayerUrls.tracks`, which resolves rows the page payload lacks. Detail is asked for only for the displayed and next tracks.
+
 ## 0.4.0
 
 ### Minor Changes

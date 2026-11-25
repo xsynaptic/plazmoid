@@ -21,6 +21,7 @@ import {
 	trackIdAttribute,
 } from '#constants.ts';
 import { bind } from '#lib/bind.ts';
+import { resolveTracks } from '#store/resolve-tracks.ts';
 import { currentCue, loadedTrack } from '#store/selectors.ts';
 import { toStoredTrack } from '#store/stored-shapes.ts';
 
@@ -38,6 +39,11 @@ export interface PageControls {
 
 interface PageControlOptions {
 	onPress?: ((press: ControlPress) => void) | undefined;
+}
+
+interface RowPress {
+	land: (state: PlayerStore, tracks: Array<Track>) => ControlPress;
+	trackIds: ReadonlyArray<string>;
 }
 
 interface RowState {
@@ -58,14 +64,63 @@ export function bindPageControls(
 	const readPayload = payloadReader(page);
 	const selectRowState = rowStateSelector();
 
+	let latestPress = 0;
+
+	const land = (press: RowPress, tracks: Array<Track>): void => {
+		const landed = press.land(store.getState(), tracks);
+
+		onPress?.(landed);
+	};
+
+	const landResolved = async (
+		press: RowPress,
+		payload: Array<Track>,
+		resolving: Promise<Array<Track>>,
+	): Promise<void> => {
+		const pressNumber = latestPress;
+		let resolved: Array<Track>;
+
+		try {
+			resolved = await resolving;
+		} catch {
+			return;
+		}
+
+		if (pressNumber !== latestPress || signal.aborted) return;
+
+		land(press, tracksWithIds(press.trackIds, [...payload, ...resolved]));
+	};
+
+	const gather = (press: RowPress, payload: Array<Track>): void => {
+		const missingIds = idsMissingFrom(press.trackIds, payload);
+		const resolve = store.getState().urls?.tracks;
+
+		// Stays synchronous when the payload holds every row, so playback starts inside the click
+		if (!resolve || missingIds.length === 0) {
+			land(press, tracksWithIds(press.trackIds, payload));
+			return;
+		}
+
+		void landResolved(press, payload, resolveTracks(resolve, missingIds));
+	};
+
 	const dispatchControl = (target: Element | undefined): void => {
 		const control = target?.closest(controlSelector);
 		if (!control) return;
 
-		// A page without a payload can still pause or jump to what is queued
-		const press = pressControl(store.getState(), control, readPayload() ?? []);
+		latestPress += 1;
 
-		if (press) onPress?.(press);
+		// A page without a payload can still pause or jump to what is queued
+		const payload = readPayload() ?? [];
+		const press = pressControl(store.getState(), control, payload);
+		if (!press) return;
+
+		if ('land' in press) {
+			gather(press, payload);
+			return;
+		}
+
+		onPress?.(press);
 	};
 
 	// A queue restored from storage can predate this build; a press on a track already queued jumps to the stored copy
@@ -109,6 +164,13 @@ export function bindPageControls(
 
 function attribute(element: Element, name: string): string | undefined {
 	return element.getAttribute(name) ?? undefined;
+}
+
+function idsMissingFrom(
+	trackIds: ReadonlyArray<string>,
+	tracks: ReadonlyArray<Track>,
+): Array<string> {
+	return [...new Set(trackIds)].filter((trackId) => !trackWithId(trackId, tracks));
 }
 
 function isGroupLoaded(control: Element, trackId: string | undefined): boolean {
@@ -215,67 +277,102 @@ function trackWithId(trackId: string, tracks: ReadonlyArray<Track>): Track | und
 function pressControl(
 	state: PlayerStore,
 	control: Element,
-	tracks: Array<Track>,
-): ControlPress | undefined {
-	if (control.hasAttribute(playTracksAttribute)) return pressGroup(state, control, tracks);
+	payload: Array<Track>,
+): ControlPress | RowPress | undefined {
+	if (control.hasAttribute(playTracksAttribute)) return pressGroup(state, control);
 
 	const queueTracks = attribute(control, queueTracksAttribute);
 
 	if (queueTracks !== undefined) {
-		const group = tracksWithIds(queueTracks.split(' '), tracks);
+		return {
+			land: (latest, group) => {
+				latest.queueTracks(group);
 
-		state.queueTracks(group);
-
-		return { trackIds: group.map((track) => track.trackId), verb: 'queue-tracks' };
+				return { trackIds: group.map((track) => track.trackId), verb: 'queue-tracks' };
+			},
+			trackIds: queueTracks.split(' '),
+		};
 	}
 
 	const queueTrack = attribute(control, queueTrackAttribute);
 
 	if (queueTrack) {
-		const track = trackWithId(queueTrack, tracks);
+		return {
+			land: (latest, tracks) => {
+				latest.queueTracks(tracks);
 
-		if (track) state.queueTracks([track]);
-
-		return { trackIds: [queueTrack], verb: 'queue-track' };
+				return { trackIds: [queueTrack], verb: 'queue-track' };
+			},
+			trackIds: [queueTrack],
+		};
 	}
 
 	const playTrack = attribute(control, playTrackAttribute);
 	if (!playTrack) return undefined;
 
-	pressTrack(state, playTrack, tracks);
-
-	return { trackIds: [playTrack], verb: 'play-track' };
+	return pressTrack(state, playTrack, payload);
 }
 
-function pressGroup(state: PlayerStore, control: Element, tracks: Array<Track>): ControlPress {
+function pressGroup(state: PlayerStore, control: Element): ControlPress | RowPress {
 	if (isGroupLoaded(control, loadedTrack(state)?.trackId)) {
 		state.togglePaused();
 
 		return { trackIds: groupIds(control), verb: 'toggle-tracks' };
 	}
 
-	const group = tracksWithIds(groupIds(control), tracks);
-	const trackIds = group.map((track) => track.trackId);
 	const playFrom = attribute(control, playFromAttribute);
 
-	state.playQueue(group, playFrom);
+	return {
+		land: (latest, group) => {
+			const trackIds = group.map((track) => track.trackId);
 
-	if (playFrom === undefined) return { trackIds, verb: 'play-tracks' };
+			latest.playQueue(group, playFrom);
 
-	return { startTrackId: playFrom, trackIds, verb: 'play-tracks' };
+			if (playFrom === undefined) return { trackIds, verb: 'play-tracks' };
+
+			return { startTrackId: playFrom, trackIds, verb: 'play-tracks' };
+		},
+		trackIds: groupIds(control),
+	};
 }
 
-// An empty queue takes the whole payload, so the rest of the release follows the pressed track
-function pressTrack(state: PlayerStore, trackId: string, tracks: Array<Track>): void {
+function pressTrack(
+	state: PlayerStore,
+	trackId: string,
+	payload: Array<Track>,
+): ControlPress | RowPress {
+	const press: ControlPress = { trackIds: [trackId], verb: 'play-track' };
+	const isInPayload = trackWithId(trackId, payload) !== undefined;
+
+	// An empty queue takes the whole payload, so the rest of the release follows the pressed track
 	if (state.queue.length === 0) {
-		state.playQueue(tracks, trackId);
-		return;
+		return {
+			land: (latest, tracks) => {
+				latest.playQueue(tracks, trackId);
+
+				return press;
+			},
+			trackIds: isInPayload ? payload.map((track) => track.trackId) : [trackId],
+		};
 	}
 
 	// The queue is the store's, so a queued track still plays when the payload lacks it
-	const track = trackWithId(trackId, tracks) ?? trackWithId(trackId, state.queue);
+	const queued = isInPayload ? undefined : trackWithId(trackId, state.queue);
 
-	if (track) state.playTrack(track);
+	if (queued) {
+		state.playTrack(queued);
+
+		return press;
+	}
+
+	return {
+		land: (latest, [track]) => {
+			if (track) latest.playTrack(track);
+
+			return press;
+		},
+		trackIds: [trackId],
+	};
 }
 
 function rowStateSelector(): (state: PlayerStore) => RowState {

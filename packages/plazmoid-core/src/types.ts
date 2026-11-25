@@ -28,6 +28,8 @@ export interface PlayerUrls {
 	detail?: ((track: Track) => Promise<TrackDetail | undefined>) | undefined;
 	// For a URL worked out per play; absent plays the track's own `sources`
 	stream?: (track: Track) => Promise<StreamResolution>;
+	// Rows the page payload lacks; an id left out of the answer is dropped
+	tracks?: (trackIds: ReadonlyArray<string>) => Promise<ReadonlyArray<Track>>;
 }
 
 // One square rendition; `width` is its size in pixels

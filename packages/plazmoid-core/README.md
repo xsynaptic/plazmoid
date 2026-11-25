@@ -47,6 +47,8 @@ The media element is never added to the document, and it requests audio with `cr
 
 `data-pzm-play-track` plays a track, `data-pzm-queue-track` adds it without playing, `data-pzm-play-tracks` replaces the queue with a list of ids and `data-pzm-queue-tracks` adds them. `data-pzm-play-from` beside `data-pzm-play-tracks` names the id to start at. A row marked with `data-pzm-track-id` gets `data-pzm-loaded`, `data-pzm-playing` and `data-pzm-queued` as its track changes state, so you can style it. Cue point lists work the same way, with `data-pzm-cue-track` on the list and `data-pzm-cue-seconds` on each row.
 
+A control whose ids the payload lacks asks `urls.tracks(trackIds)` for their rows, so a page can ship controls with no payload. `urls.tracks` also refreshes a queue restored from storage. Detail is only asked for the displayed track and the next one.
+
 After a client-side navigation, call `refresh()` on the controls `bindPageControls` returns.
 
 ## Loading the player late

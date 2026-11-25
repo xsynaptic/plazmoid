@@ -55,6 +55,8 @@ Render a persisted `data-pzm-host` element on every page and start the player fr
 
 `startAstroPlayer` calls your function once, on the first page with something to play, then loads the player on the first press or idle moment and replays any press made meanwhile. A `<script type="application/json">` inside the host reaches your function parsed, as its second argument; escape `<` in it so no value can close the script. An optional `load()` resolves to `onPress`, `onReady` and `onEvent` hooks, and `urls` is called once it settles.
 
+Page controls alone count as something to play, so a page with no payload starts the player; give `urls` a `tracks` resolver for their rows.
+
 ## Styling
 
 The elements, the `pzm-*` classes and the `--pzm-*` custom properties are all public. `<pzm-root>` also reflects the player's state in `data-*` attributes, such as `data-status` and `data-paused`, for your own rules.

@@ -1,4 +1,4 @@
-import type { PlayerUrls, StreamResolution } from '@xsynaptic/plazmoid-core';
+import type { PlayerUrls, StreamResolution, Track } from '@xsynaptic/plazmoid-core';
 
 import { loadedTrack } from '@xsynaptic/plazmoid-core';
 import { heldPressAttribute } from '@xsynaptic/plazmoid-core/constants';
@@ -13,14 +13,16 @@ import { LazyModuleError } from '#lib/lazy-module.ts';
 // Inline, so happy-dom has nothing to fetch
 const stylesheet = 'data:text/css,';
 
-const payload = JSON.stringify(
-	['a', 'b'].map((trackId) => ({
+function row(trackId: string): Track {
+	return {
 		artistLine: 'Fixture Artist',
 		releaseTitle: 'Fixtures',
 		title: `Track ${trackId}`,
 		trackId,
-	})),
-);
+	};
+}
+
+const payload = JSON.stringify(['a', 'b'].map((trackId) => row(trackId)));
 
 const urls: PlayerUrls = {
 	stream: () => Promise.withResolvers<StreamResolution>().promise,
@@ -38,11 +40,18 @@ function control(selector: string): HTMLElement {
 	return found;
 }
 
-function mountPage({ hasPayload, host = '' }: { hasPayload: boolean; host?: string }): void {
+function mountPage({
+	hasControls = true,
+	hasPayload,
+	host = '',
+}: {
+	hasControls?: boolean;
+	hasPayload: boolean;
+	host?: string;
+}): void {
 	document.body.innerHTML = `
 		${hasPayload ? `<div data-pzm-payload='${payload}' hidden></div>` : ''}
-		<button data-pzm-play-track="a"><span>Play a</span></button>
-		<button data-pzm-queue-track="b">Queue b</button>
+		${hasControls ? '<button data-pzm-play-track="a"><span>Play a</span></button><button data-pzm-queue-track="b">Queue b</button>' : ''}
 		<div data-pzm-host>${host}</div>
 	`;
 }
@@ -147,7 +156,7 @@ describe('startAstroPlayer', () => {
 
 	test('a later page load that brings a payload starts the player, and only once', async () => {
 		stubIdle({ isIdle: true });
-		mountPage({ hasPayload: false });
+		mountPage({ hasControls: false, hasPayload: false });
 
 		const configure = start();
 
@@ -163,6 +172,35 @@ describe('startAstroPlayer', () => {
 			expect(document.querySelectorAll('[data-pzm-host] > pzm-root')).toHaveLength(1);
 		});
 		expect(configure).toHaveBeenCalledExactlyOnceWith(control('[data-pzm-host]'), undefined);
+	});
+
+	test('a page with a control and no payload boots the player, and a press plays the row the host resolves', async () => {
+		stubIdle({ isIdle: true });
+		mountPage({ hasPayload: false });
+
+		const tracks = vi.fn((trackIds: ReadonlyArray<string>) =>
+			Promise.resolve(trackIds.map((trackId) => row(trackId))),
+		);
+		const ready = Promise.withResolvers<AstroPlayer>();
+
+		start({
+			load: () =>
+				Promise.resolve({
+					onReady: (player) => {
+						ready.resolve(player);
+					},
+				}),
+			urls: () => ({ ...urls, tracks }),
+		});
+
+		const { store } = await ready.promise;
+
+		control('[data-pzm-play-track]').click();
+
+		await vi.waitFor(() => {
+			expect(loadedTrack(store.getState())?.trackId).toBe('a');
+		});
+		expect(tracks).toHaveBeenCalledExactlyOnceWith(['a']);
 	});
 
 	test('a press once the page controls are bound is theirs, and so is one from onReady', async () => {

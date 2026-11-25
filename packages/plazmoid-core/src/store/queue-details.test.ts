@@ -125,6 +125,44 @@ describe('queued detail', () => {
 	});
 });
 
+describe('detail window', () => {
+	test('a restored queue spanning several releases asks for the displayed and next tracks only, then each as it enters', async () => {
+		const queue = ['one', 'two', 'three'].flatMap((release) =>
+			['a', 'b'].map((side) => ({ ...makeTrack(`${release}-${side}`), releaseTitle: release })),
+		);
+		const first = createStore(() => Promise.resolve(strip), { isPersistent: true });
+
+		first.getState().playQueue(queue, 'two-a');
+		await settle();
+
+		const detail = vi.fn<NonNullable<PlayerUrls['detail']>>(() => Promise.resolve(strip));
+		const second = createStore(detail, { isPersistent: true });
+
+		await settle();
+
+		expect(detail.mock.calls.map(([{ trackId }]) => trackId)).toStrictEqual(['two-a', 'two-b']);
+
+		second.getState().next();
+		await settle();
+
+		expect(detail.mock.calls.map(([{ trackId }]) => trackId)).toStrictEqual([
+			'two-a',
+			'two-b',
+			'three-a',
+		]);
+	});
+
+	test('a queue loaded with nothing playing asks for its first track and the one after', async () => {
+		const detail = vi.fn<NonNullable<PlayerUrls['detail']>>(() => Promise.resolve(strip));
+		const store = createStore(detail);
+
+		store.getState().loadQueue([makeTrack('a'), makeTrack('b'), makeTrack('c')]);
+		await settle();
+
+		expect(detail.mock.calls.map(([{ trackId }]) => trackId)).toStrictEqual(['a', 'b']);
+	});
+});
+
 describe('detail retry', () => {
 	test('asks again after the base delay, and the answer replaces the groove', async () => {
 		const detail = vi

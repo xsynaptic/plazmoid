@@ -15,6 +15,7 @@ import { createPlayerPersistence } from '#store/player-persistence.ts';
 import { createPreferenceActions } from '#store/preference-actions.ts';
 import { createQueueActions } from '#store/queue-actions.ts';
 import { bindQueueDetails } from '#store/queue-details.ts';
+import { bindQueueRows } from '#store/queue-rows.ts';
 import { createTransportActions } from '#store/transport-actions.ts';
 
 export type { PlayerStore, PlayerStoreApi, PlayerStoreOptions } from '#store/player-types.ts';
@@ -71,6 +72,7 @@ export function createWritablePlayerStore(options?: PlayerStoreOptions): StoreAp
 
 	// After the stored detail lands, so a restored track is asked for without first reading as pending
 	bindQueueDetails(store);
+	bindQueueRows(store);
 
 	return store;
 }

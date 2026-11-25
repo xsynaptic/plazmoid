@@ -24,7 +24,11 @@ afterEach(() => {
 	document.body.replaceChildren();
 });
 
-function bindPage(tracks: Array<Track>, controls: string) {
+function bindPage(
+	tracks: Array<Track> | undefined,
+	controls: string,
+	resolveRows?: NonNullable<PlayerUrls['tracks']>,
+) {
 	const fake = createMockEngine();
 	const store = createWritablePlayerStore({
 		createEngine: fake.createEngine,
@@ -33,17 +37,29 @@ function bindPage(tracks: Array<Track>, controls: string) {
 
 	const onPress = vi.fn();
 
-	store.getState().configure({ urls });
-	document.body.innerHTML = `<div data-pzm-payload='${JSON.stringify(tracks)}' hidden></div>${controls}`;
+	store.getState().configure({ urls: resolveRows ? { ...urls, tracks: resolveRows } : urls });
+	document.body.innerHTML = `${tracks ? `<div data-pzm-payload='${JSON.stringify(tracks)}' hidden></div>` : ''}${controls}`;
 
 	return {
-		bind: () => {
-			pageControls = bindPageControls(store, document, { onPress });
+		bind: ({ isReporting = true } = {}) => {
+			pageControls = bindPageControls(store, document, isReporting ? { onPress } : {});
 		},
 		fake,
 		onPress,
 		store,
 	};
+}
+
+function rowsOf(trackIds: ReadonlyArray<string>): Promise<Array<Track>> {
+	return Promise.resolve(trackIds.map((trackId) => makeTrack(trackId)));
+}
+
+function settle(): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function queuedIds(page: ReturnType<typeof bindPage>): Array<string> {
+	return page.store.getState().queue.map((track) => track.trackId);
 }
 
 function element(selector: string): HTMLElement {
@@ -75,6 +91,15 @@ describe('bindPageControls', () => {
 
 		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
 		expect(element('[data-pzm-play-track]').hasAttribute(heldPressAttribute)).toBe(false);
+	});
+
+	test('a press lands for a host that passes no onPress', () => {
+		const page = bindPage([makeTrack('a')], '<button data-pzm-play-track="a"></button>');
+
+		page.bind({ isReporting: false });
+		element('[data-pzm-play-track]').click();
+
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('a');
 	});
 
 	test('a track control beats the play-all wrapped around it, queueing only its own track', () => {
@@ -414,5 +439,158 @@ describe('bindPageControls', () => {
 
 		expect(element('[data-pzm-track-id="a"]').dataset.pzmQueued).toBe('');
 		expect(element('[data-pzm-queue-track]').hasAttribute('disabled')).toBe(true);
+	});
+});
+
+describe('rows the payload lacks', () => {
+	test('a page that ships controls alone plays the rows the host resolves, and reports the press once they land', async () => {
+		const resolveRows = vi.fn(rowsOf);
+		const page = bindPage(
+			undefined,
+			'<button data-pzm-play-tracks="a b c" data-pzm-play-from="b"></button>',
+			resolveRows,
+		);
+
+		page.bind();
+		element('[data-pzm-play-tracks]').click();
+
+		expect(queuedIds(page)).toEqual([]);
+		expect(page.onPress).not.toHaveBeenCalled();
+
+		await vi.waitFor(() => {
+			expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+		});
+		expect(queuedIds(page)).toEqual(['a', 'b', 'c']);
+		expect(resolveRows).toHaveBeenCalledExactlyOnceWith(['a', 'b', 'c']);
+		expect(page.onPress).toHaveBeenCalledExactlyOnceWith({
+			startTrackId: 'b',
+			trackIds: ['a', 'b', 'c'],
+			verb: 'play-tracks',
+		});
+	});
+
+	test('a track press on an empty queue with no payload plays the named track alone', async () => {
+		const resolveRows = vi.fn(rowsOf);
+		const page = bindPage(undefined, '<button data-pzm-play-track="b"></button>', resolveRows);
+
+		page.bind();
+		element('[data-pzm-play-track]').click();
+
+		await vi.waitFor(() => {
+			expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+		});
+		expect(queuedIds(page)).toEqual(['b']);
+		expect(resolveRows).toHaveBeenCalledExactlyOnceWith(['b']);
+	});
+
+	test('a payload row is used without asking the host, which is asked only for the rest', async () => {
+		const resolveRows = vi.fn(rowsOf);
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b')],
+			'<button data-pzm-play-tracks="a b" id="embedded"></button><button data-pzm-queue-tracks="a c" id="mixed"></button>',
+			resolveRows,
+		);
+
+		page.bind();
+		element('#embedded').click();
+
+		expect(queuedIds(page)).toEqual(['a', 'b']);
+		expect(resolveRows).not.toHaveBeenCalled();
+
+		element('#mixed').click();
+
+		await vi.waitFor(() => {
+			expect(queuedIds(page)).toEqual(['a', 'b', 'c']);
+		});
+		expect(resolveRows).toHaveBeenCalledExactlyOnceWith(['c']);
+	});
+
+	test('a resolved row that fails the track check is dropped from the press', async () => {
+		const page = bindPage(undefined, '<button data-pzm-queue-tracks="a b"></button>', () =>
+			Promise.resolve([{ trackId: 'a' } as unknown as Track, makeTrack('b')]),
+		);
+
+		page.bind();
+		element('[data-pzm-queue-tracks]').click();
+
+		await vi.waitFor(() => {
+			expect(page.onPress).toHaveBeenCalledWith({ trackIds: ['b'], verb: 'queue-tracks' });
+		});
+		expect(queuedIds(page)).toEqual(['b']);
+	});
+
+	test('a slow resolve that lands after a newer press leaves the newer choice', async () => {
+		const answers = new Map<string, PromiseWithResolvers<Array<Track>>>();
+		const page = bindPage(
+			undefined,
+			'<button data-pzm-play-tracks="a" id="first"></button><button data-pzm-play-tracks="b" id="second"></button>',
+			(trackIds) => {
+				const answer = Promise.withResolvers<Array<Track>>();
+
+				answers.set(trackIds.join(' '), answer);
+
+				return answer.promise;
+			},
+		);
+
+		page.bind();
+		element('#first').click();
+		element('#second').click();
+		answers.get('b')?.resolve([makeTrack('b')]);
+
+		await vi.waitFor(() => {
+			expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+		});
+
+		answers.get('a')?.resolve([makeTrack('a')]);
+		await settle();
+
+		expect(queuedIds(page)).toEqual(['b']);
+		expect(page.onPress).toHaveBeenCalledExactlyOnceWith({ trackIds: ['b'], verb: 'play-tracks' });
+	});
+
+	test('a rejected resolve leaves the queue and position untouched, and the control pressable', async () => {
+		let isOnline = false;
+		const page = bindPage(undefined, '<button data-pzm-play-tracks="a b"></button>', (trackIds) =>
+			isOnline ? rowsOf(trackIds) : Promise.reject(new Error('offline')),
+		);
+
+		page.bind();
+		page.store.getState().playQueue([makeTrack('x'), makeTrack('y')], 'y');
+		page.store.getState().seek(42);
+
+		const { queue } = page.store.getState();
+
+		element('[data-pzm-play-tracks]').click();
+		await settle();
+
+		expect(page.store.getState().queue).toBe(queue);
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('y');
+		expect(page.store.getState().currentTimeSeconds).toBe(42);
+		expect(page.onPress).not.toHaveBeenCalled();
+
+		isOnline = true;
+		element('[data-pzm-play-tracks]').click();
+
+		await vi.waitFor(() => {
+			expect(queuedIds(page)).toEqual(['a', 'b']);
+		});
+	});
+
+	test('a press still resolving when the controls unbind lands nothing', async () => {
+		const answer = Promise.withResolvers<Array<Track>>();
+		const page = bindPage(
+			undefined,
+			'<button data-pzm-queue-track="a"></button>',
+			() => answer.promise,
+		);
+
+		page.bind();
+		element('[data-pzm-queue-track]').click();
+		pageControls?.unbind();
+		answer.resolve([makeTrack('a')]);
+		await settle();
+
+		expect(queuedIds(page)).toEqual([]);
 	});
 });

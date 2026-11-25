@@ -5,6 +5,7 @@ import type { PlayerUrls, Track, TrackDetail } from '#types.ts';
 
 import { retryDelayMs } from '#lib/retry-delay.ts';
 import { isSameJson } from '#queue/queue-state.ts';
+import { isWindowMoved, windowTracks } from '#store/queue-window.ts';
 
 // A request that brought nothing, so the bar stops waiting and draws its groove
 const noDetail: TrackDetail = {};
@@ -51,8 +52,8 @@ export function bindQueueDetails(api: StoreApi<PlayerStore>): void {
 		api.setState({ details: new Map(kept) });
 	}
 
-	function requestQueued(): void {
-		const { queue, urls } = api.getState();
+	function requestWindow(): void {
+		const { urls } = api.getState();
 
 		if (urls?.detail !== resolveDetail) {
 			resolveDetail = urls?.detail;
@@ -62,7 +63,7 @@ export function bindQueueDetails(api: StoreApi<PlayerStore>): void {
 
 		if (!resolveDetail) return;
 
-		for (const track of queue) {
+		for (const track of windowTracks(api.getState())) {
 			if (requested.has(track.trackId)) continue;
 
 			requested.add(track.trackId);
@@ -101,16 +102,16 @@ export function bindQueueDetails(api: StoreApi<PlayerStore>): void {
 		for (const trackId of failed) requested.delete(trackId);
 
 		failed.clear();
-		requestQueued();
+		requestWindow();
 	}
 
 	function sync(): void {
 		forgetUnqueued();
-		requestQueued();
+		requestWindow();
 	}
 
 	sync();
 	api.subscribe((state, previous) => {
-		if (state.queue !== previous.queue || state.urls !== previous.urls) sync();
+		if (isWindowMoved(state, previous)) sync();
 	});
 }

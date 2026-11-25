@@ -1,5 +1,13 @@
 # @xsynaptic/plazmoid-player
 
+## 0.4.1
+
+### Patch Changes
+
+- Document `urls.tracks` and pages that ship controls with no payload.
+- Updated dependencies
+  - @xsynaptic/plazmoid-core@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes

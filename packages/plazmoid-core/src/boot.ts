@@ -45,7 +45,7 @@ export function holdPresses(page: Document): HeldPresses {
 
 // A page that can queue something, or a listener whose bar is already showing
 export function isPlayerActionable(page: Document, storage?: PlayerStorage): boolean {
-	if (page.querySelector(payloadSelector)) return true;
+	if (page.querySelector(`${payloadSelector},${controlSelector}`)) return true;
 
 	return readStored(storage, queueStorageKey) !== undefined;
 }

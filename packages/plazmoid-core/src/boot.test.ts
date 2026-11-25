@@ -39,4 +39,10 @@ describe('isPlayerActionable', () => {
 
 		expect(isPlayerActionable(document, storage)).toBe(true);
 	});
+
+	test('a page with a control and no payload is actionable, since the host can resolve its rows', () => {
+		document.body.innerHTML = '<button data-pzm-queue-tracks="a b"></button>';
+
+		expect(isPlayerActionable(document, createMemoryStorage())).toBe(true);
+	});
 });
