@@ -15,6 +15,8 @@ All integers are little-endian. The file is not compressed, padded or aligned, a
 
 The source is 16-bit PCM, two channels, at its own sample rate. A writer refuses anything else; a lossy or higher-resolution source is converted to 16-bit PCM before it reaches the writer. Do not resample; the rate is recorded, and every time is derived from it.
 
+A writer may also accept a one-channel source, reading each sample as both `L` and `R`. The file still describes two channels, and both modes write the same bytes for it.
+
 Write `L` and `R` for a frame's two samples as signed 16-bit integers, and `÷` for integer division truncated toward zero, as C and audiowaveform do it.
 
 ## Modes
