@@ -1,6 +1,9 @@
+import type { PlayerPress } from '#player-press.ts';
 import type { PlayerStore, PlayerStoreApi } from '#store/player-types.ts';
 import type { PlayerStatus, QueuedTrack } from '#types.ts';
 
+import { guarded } from '#lib/guarded.ts';
+import { stepPress, transportPress } from '#player-press.ts';
 import { loadedTrack } from '#store/selectors.ts';
 
 const mediaSessionArtworkMaxWidth = 512;
@@ -11,6 +14,10 @@ const positionToleranceSeconds = 2;
 // Firefox on Android drops metadata sent before the element counts as audible, and resends none when its controller reactivates
 const metadataResendSeconds = 2;
 
+interface MediaSessionOptions {
+	onPress?: ((press: PlayerPress) => void) | undefined;
+}
+
 interface ReportedPosition {
 	atMilliseconds: number;
 	duration: number;
@@ -18,13 +25,21 @@ interface ReportedPosition {
 	position: number;
 }
 
-export function bindMediaSession(store: PlayerStoreApi): () => void {
+export function bindMediaSession(
+	store: PlayerStoreApi,
+	{ onPress }: MediaSessionOptions = {},
+): () => void {
 	if (!('mediaSession' in navigator))
 		return () => {
 			// Nothing was claimed
 		};
 
-	const actions = bindActions(store);
+	const actions = bindActions(
+		store,
+		guarded((press: PlayerPress | undefined) => {
+			if (press) onPress?.(press);
+		}),
+	);
 
 	let boundQueueId: string | undefined;
 	let boundState: MediaSessionPlaybackState | undefined;
@@ -105,30 +120,41 @@ export function bindMediaSession(store: PlayerStoreApi): () => void {
 	};
 }
 
-function bindActions(store: PlayerStoreApi): Array<MediaSessionAction> {
+function bindActions(
+	store: PlayerStoreApi,
+	report: (press: PlayerPress | undefined) => void,
+): Array<MediaSessionAction> {
 	const bindings: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
 		[
 			'play',
 			() => {
+				const press = transportPress(store.getState(), 'play', 'media-session');
+
 				store.getState().play();
+				report(press);
 			},
 		],
 		[
 			'pause',
 			() => {
+				const press = transportPress(store.getState(), 'pause', 'media-session');
+
 				store.getState().pause();
+				report(press);
 			},
 		],
 		[
 			'previoustrack',
 			() => {
 				store.getState().previous();
+				report(stepPress(store.getState(), 'previous', 'media-session'));
 			},
 		],
 		[
 			'nexttrack',
 			() => {
 				store.getState().next();
+				report(stepPress(store.getState(), 'next', 'media-session'));
 			},
 		],
 		[

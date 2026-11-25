@@ -37,7 +37,7 @@ export class PlayerQueueButton extends PlayerElement {
 	readonly #parts = renderQueueParts();
 
 	protected connect(signal: AbortSignal): void {
-		const { labels, store, view } = playerContext(this);
+		const { labels, report, store, view } = playerContext(this);
 		const { control, trigger } = this.#parts;
 		const opened = supersede(signal);
 
@@ -77,6 +77,7 @@ export class PlayerQueueButton extends PlayerElement {
 				button: trigger,
 				press: (state) => {
 					state.toggleTray();
+					if (!state.isTrayOpen) report({ action: 'open', part: 'tray' });
 				},
 				select: isTrayOpen,
 				store: view,

@@ -28,6 +28,22 @@ document.body.append(root);
 
 `createPlayer` returns a `<pzm-root>` holding the bar, which reads its options and the store's `seekSeconds` once, when it is first added to the page. Core's README covers `urls`, play buttons on the page and loading the player late.
 
+## Presses
+
+`onPress` receives a `PlayerPress` for each thing the listener did. A toggle reports `play` or `pause`; seeking, the waveform and volume report nothing.
+
+| `action` | `origin` | Carries |
+| --- | --- | --- |
+| `play`, `pause` | `bar`, `overlay`, `page`, `tray`, `media-session` | `trackId`; `play` adds `isResume`, false when it loads the track |
+| `next`, `previous` | `bar`, `overlay`, `media-session` | `trackId` landed on |
+| `play-track`, `queue-track` | `page` | `trackId` |
+| `play-tracks` | `page` | `trackId` started on, `trackIds` |
+| `queue-tracks` | `page` | `trackIds` |
+| `pick`, `remove` | `tray` | `trackId` |
+| `move` | `tray` | `trackId`, `from`, `to` |
+| `clear` | `tray` | `trackCount` |
+| `open` |  | `part`: `overlay`, `panel` or `tray` |
+
 `labels` is required, so a translated site doesn't ship the English strings. Spread `defaultLabels` and override what you need.
 
 The main entry registers nothing on import and can't load in Node. `./define` registers the elements by side effect, so a bundler that ignores this package's `sideEffects` field will drop it. The queue tray, waveform panel, scope and full-screen view load the first time they open.
@@ -53,7 +69,7 @@ Render a persisted `data-pzm-host` element on every page and start the player fr
 </script>
 ```
 
-`startAstroPlayer` calls your function once, on the first page with something to play, then loads the player on the first press or idle moment and replays any press made meanwhile. A `<script type="application/json">` inside the host reaches your function parsed, as its second argument; escape `<` in it so no value can close the script. An optional `load()` resolves to `onPress`, `onReady` and `onEvent` hooks, and `urls` is called once it settles.
+`startAstroPlayer` calls your function once, on the first page with something to play, then loads the player on the first press or idle moment and replays any press made meanwhile. A `<script type="application/json">` inside the host reaches your function parsed, as its second argument; escape `<` in it so no value can close the script. An optional `load()` resolves to `onPress`, `onReady` and `onEvent` hooks, and `urls` is called once it settles. `onPress` hears the page, the player and the lock screen; `onEvent` hears playback health and `chunk-failed`. Errors, a throwing hook's included, go to `reportError`.
 
 Page controls alone count as something to play, so a page with no payload starts the player; give `urls` a `tracks` resolver for their rows.
 

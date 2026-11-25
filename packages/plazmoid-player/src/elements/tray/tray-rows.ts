@@ -13,7 +13,7 @@ interface RowEntry {
 	track: QueuedTrack;
 }
 
-interface RowPress {
+export interface RowPress {
 	button: HTMLButtonElement;
 	control: 'handle' | 'pick' | 'remove';
 	queueId: string;

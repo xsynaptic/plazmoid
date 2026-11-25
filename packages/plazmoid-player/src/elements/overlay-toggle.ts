@@ -13,12 +13,15 @@ export const PlayerOverlayToggle = buttonPart(() => ({
 		button.disabled = isEmpty;
 	},
 	// The press lands on the view store, which this button never reads, so it is bound here
-	connect: (button, { store, view }, signal) => {
+	connect: (button, { report, store, view }, signal) => {
 		bindPreload({ preload: overlayBodyModule.preload, store, trigger: button }, signal);
 		button.addEventListener(
 			'click',
 			() => {
+				const isOpening = !view.getState().isOverlayOpen;
+
 				view.getState().toggleOverlay();
+				if (isOpening) report({ action: 'open', part: 'overlay' });
 			},
 			{ signal },
 		);

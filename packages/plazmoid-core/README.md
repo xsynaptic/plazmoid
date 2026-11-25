@@ -23,7 +23,7 @@ bindMediaSession(store);
 
 A track lists its audio in `sources`, in order of preference, and the player loads the first one the browser can play. Nothing plays until `configure` sets `urls`, even to `{}`. `urls.stream` resolves the sources at play time instead, for a URL that has to be signed; `urls.detail` returns a track's cue points and waveform. Extra fields on a track are kept, through storage too, and passed back to both.
 
-`bindPlaybackEvents(store, listener)` reports diagnostics and failures, for analytics.
+`bindPlaybackEvents(store, listener)` reports playback health: `failed` and `diagnostic`. What the listener does arrives through the `onPress` option of `bindPageControls` and `bindMediaSession`. A listener that throws goes to `reportError`.
 
 The media element is never added to the document, and it requests audio with `crossOrigin = 'anonymous'`, so the server hosting your audio needs to send CORS headers.
 

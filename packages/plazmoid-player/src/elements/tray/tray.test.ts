@@ -40,21 +40,27 @@ async function mountDraggableTray() {
 async function mountTray(tracks: Array<Track> = threeTracks) {
 	await trayModule.load();
 
-	const mounted = mount('pzm-tray');
+	const onPress = vi.fn();
+	const mounted = mount('pzm-tray', { root: { onPress } });
 
 	mounted.store.getState().loadQueue(tracks);
 
-	return mounted;
+	return { ...mounted, onPress };
 }
 
 async function openQueue() {
-	const mounted = mount('pzm-queue-button');
+	const onPress = vi.fn();
+	const mounted = mount('pzm-queue-button', { root: { onPress } });
 	const trigger = getByRole(mounted.part, 'button', { name: defaultLabels.queue });
 
 	mounted.store.getState().loadQueue(threeTracks);
 	trigger.click();
 
-	return { ...mounted, tray: await waitForTray(mounted.part), trigger };
+	return { ...mounted, onPress, tray: await waitForTray(mounted.part), trigger };
+}
+
+function presses(onPress: ReturnType<typeof vi.fn>): Array<unknown> {
+	return onPress.mock.calls.map(([press]: Array<unknown>) => press);
 }
 
 function queuedIds({ store }: ReturnType<typeof mount>): Array<string> {
@@ -86,6 +92,22 @@ describe('<pzm-queue-button> with its tray', () => {
 
 		expect(store.getState().currentIndex).toBe(1);
 		expect(view.getState().isTrayOpen).toBe(true);
+	});
+
+	test('reports opening, a pick, a pick on the loaded row as its toggle, and Clear', async () => {
+		const { onPress, part, tray, trigger } = await openQueue();
+
+		getByRole(tray, 'button', { name: /Mix b/ }).click();
+		getByRole(tray, 'button', { name: /Mix b/ }).click();
+		getByRole(part, 'button', { name: defaultLabels.clearQueue }).click();
+		trigger.click();
+
+		expect(presses(onPress)).toStrictEqual([
+			{ action: 'open', part: 'tray' },
+			{ action: 'pick', origin: 'tray', trackId: 'b' },
+			{ action: 'pause', origin: 'tray', trackId: 'b' },
+			{ action: 'clear', origin: 'tray', trackCount: 3 },
+		]);
 	});
 
 	test('heads the tray with Shuffle, which reads pressed while on, and Clear', async () => {
@@ -167,6 +189,17 @@ describe('<pzm-tray>', () => {
 		expect(queuedIds(mounted)).toStrictEqual(['b', 'a', 'c']);
 		expect(getByRole(mounted.part, 'status').textContent).toBe('Moved to position 1 of 3');
 		expect(document.activeElement).toBe(handle);
+		expect(presses(mounted.onPress)).toStrictEqual([
+			{ action: 'move', from: 1, origin: 'tray', to: 0, trackId: 'b' },
+		]);
+	});
+
+	test('reports a removed row by its track', async () => {
+		const { onPress, part } = await mountTray();
+
+		getAllByRole(part, 'button', { name: defaultLabels.removeFromQueue })[1]?.click();
+
+		expect(presses(onPress)).toStrictEqual([{ action: 'remove', origin: 'tray', trackId: 'b' }]);
 	});
 
 	test('leaves a drag running when another pointer lifts elsewhere in the list', async () => {
@@ -178,9 +211,13 @@ describe('<pzm-tray>', () => {
 		fireEvent.pointerCancel(list, { pointerId: 2 });
 
 		expect(queuedIds(mounted)).toStrictEqual(['a', 'b', 'c']);
+		expect(mounted.onPress).not.toHaveBeenCalled();
 
 		fireEvent.pointerUp(handle, { pointerId: 1 });
 
 		expect(queuedIds(mounted)).toStrictEqual(['b', 'c', 'a']);
+		expect(presses(mounted.onPress)).toStrictEqual([
+			{ action: 'move', from: 0, origin: 'tray', to: 2, trackId: 'a' },
+		]);
 	});
 });

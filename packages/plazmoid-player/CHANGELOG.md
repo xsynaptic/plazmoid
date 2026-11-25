@@ -1,5 +1,16 @@
 # @xsynaptic/plazmoid-player
 
+## 0.5.0
+
+### Minor Changes
+
+- `onPress` hears the player, the page and the lock screen; `onEvent` drops `opened`.
+
+### Patch Changes
+
+- Updated dependencies
+  - @xsynaptic/plazmoid-core@0.6.0
+
 ## 0.4.1
 
 ### Patch Changes

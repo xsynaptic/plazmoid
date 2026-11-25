@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/plazmoid-core",
-	"version": "0.5.0",
+	"version": "0.6.0",
 	"description": "The playback engine behind the Plazmoid audio player",
 	"keywords": [
 		"audio-player",

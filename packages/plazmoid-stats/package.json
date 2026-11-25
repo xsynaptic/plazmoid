@@ -1,6 +1,6 @@
 {
 	"name": "@xsynaptic/plazmoid-stats",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"description": "Measures how much of each track was actually heard, from any media element, for listen counts and analytics",
 	"keywords": [
 		"analytics",

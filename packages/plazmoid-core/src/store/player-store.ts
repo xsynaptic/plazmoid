@@ -11,6 +11,7 @@ import type {
 
 import { createAudioEngine } from '#engine/audio-engine.ts';
 import { createPlaybackController } from '#store/playback-controller.ts';
+import { createPlayedEntries } from '#store/played-entries.ts';
 import { createPlayerPersistence } from '#store/player-persistence.ts';
 import { createPreferenceActions } from '#store/preference-actions.ts';
 import { createQueueActions } from '#store/queue-actions.ts';
@@ -46,6 +47,7 @@ export function createPlayerStore(options?: PlayerStoreOptions): PlayerStoreApi 
 export function createWritablePlayerStore(options?: PlayerStoreOptions): StoreApi<PlayerStore> {
 	const createEngine = options?.createEngine ?? createAudioEngine;
 	const hydrationSteps: Array<() => void> = [];
+	const playedEntries = createPlayedEntries();
 
 	const store = createStore<PlayerStore>()((_set, _get, api) => {
 		const persistence = createPlayerPersistence(api, options?.storage);
@@ -64,6 +66,7 @@ export function createWritablePlayerStore(options?: PlayerStoreOptions): StoreAp
 			...preferenceActions,
 			...queueActions,
 			...createTransportActions({ api, playback }),
+			hasPlayed: playedEntries.hasPlayed,
 		};
 	});
 
@@ -73,6 +76,7 @@ export function createWritablePlayerStore(options?: PlayerStoreOptions): StoreAp
 	// After the stored detail lands, so a restored track is asked for without first reading as pending
 	bindQueueDetails(store);
 	bindQueueRows(store);
+	playedEntries.bind(store);
 
 	return store;
 }

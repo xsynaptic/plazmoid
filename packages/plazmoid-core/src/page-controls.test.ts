@@ -19,6 +19,7 @@ const urls: PlayerUrls = {
 };
 
 afterEach(() => {
+	vi.unstubAllGlobals();
 	pageControls?.unbind();
 	pageControls = undefined;
 	document.body.replaceChildren();
@@ -91,6 +92,11 @@ describe('bindPageControls', () => {
 
 		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
 		expect(element('[data-pzm-play-track]').hasAttribute(heldPressAttribute)).toBe(false);
+		expect(page.onPress).toHaveBeenCalledExactlyOnceWith({
+			action: 'play-track',
+			origin: 'page',
+			trackId: 'b',
+		});
 	});
 
 	test('a press lands for a host that passes no onPress', () => {
@@ -158,6 +164,46 @@ describe('bindPageControls', () => {
 		expect(page.store.getState().isPaused).toBe(true);
 	});
 
+	test('a track press on the loaded track reports the toggle, resuming only an entry that has played', () => {
+		const page = bindPage([makeTrack('a')], '<button data-pzm-play-track="a"></button>');
+
+		page.bind();
+		element('[data-pzm-play-track]').click();
+		page.fake.callbacks.current?.onStatus('playing');
+		element('[data-pzm-play-track]').click();
+		element('[data-pzm-play-track]').click();
+
+		expect(page.onPress.mock.calls.map(([press]: Array<unknown>) => press)).toEqual([
+			{ action: 'play-track', origin: 'page', trackId: 'a' },
+			{ action: 'pause', origin: 'page', trackId: 'a' },
+			{ action: 'play', isResume: true, origin: 'page', trackId: 'a' },
+		]);
+	});
+
+	test('a throwing onPress is reported, and the press after it still arrives', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b')],
+			'<button data-pzm-play-track="a"></button><button data-pzm-queue-track="b"></button>',
+		);
+		const reportError = vi.fn();
+
+		vi.stubGlobal('reportError', reportError);
+		page.onPress.mockImplementationOnce(() => {
+			throw new Error('host fault');
+		});
+		page.bind();
+		element('[data-pzm-play-track]').click();
+		element('[data-pzm-queue-track]').click();
+
+		expect(reportError).toHaveBeenCalledOnce();
+		expect(page.onPress).toHaveBeenLastCalledWith({
+			action: 'queue-track',
+			origin: 'page',
+			trackId: 'b',
+		});
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('a');
+	});
+
 	test('a track press on an id neither the payload nor the queue holds changes nothing', () => {
 		const page = bindPage([makeTrack('a')], '<button data-pzm-play-track="z"></button>');
 
@@ -203,7 +249,11 @@ describe('bindPageControls', () => {
 
 		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['b', 'a', 'c']);
 		expect(loadedTrack(page.store.getState())).toBeUndefined();
-		expect(page.onPress).toHaveBeenCalledWith({ trackIds: ['a', 'b', 'c'], verb: 'queue-tracks' });
+		expect(page.onPress).toHaveBeenCalledWith({
+			action: 'queue-tracks',
+			origin: 'page',
+			trackIds: ['a', 'b', 'c'],
+		});
 	});
 
 	test('replays a held group press as it would a track press', () => {
@@ -230,9 +280,10 @@ describe('bindPageControls', () => {
 		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['a', 'b', 'c']);
 		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
 		expect(page.onPress).toHaveBeenCalledWith({
-			startTrackId: 'b',
+			action: 'play-tracks',
+			origin: 'page',
+			trackId: 'b',
 			trackIds: ['a', 'b', 'c'],
-			verb: 'play-tracks',
 		});
 	});
 
@@ -253,17 +304,19 @@ describe('bindPageControls', () => {
 		expect(loadedTrack(page.store.getState())?.trackId).toBe('c');
 		expect(page.store.getState().isPaused).toBe(false);
 		expect(page.onPress).toHaveBeenLastCalledWith({
-			startTrackId: 'c',
+			action: 'play-tracks',
+			origin: 'page',
+			trackId: 'c',
 			trackIds: ['a', 'b', 'c'],
-			verb: 'play-tracks',
 		});
 
 		element('#from-c').click();
 
 		expect(page.store.getState().isPaused).toBe(true);
 		expect(page.onPress).toHaveBeenLastCalledWith({
-			trackIds: ['a', 'b', 'c'],
-			verb: 'toggle-tracks',
+			action: 'pause',
+			origin: 'page',
+			trackId: 'c',
 		});
 	});
 
@@ -375,7 +428,12 @@ describe('bindPageControls', () => {
 		page.bind();
 		element('[data-pzm-play-tracks]').click();
 
-		expect(page.onPress).toHaveBeenCalledWith({ trackIds: ['c', 'a'], verb: 'play-tracks' });
+		expect(page.onPress).toHaveBeenCalledWith({
+			action: 'play-tracks',
+			origin: 'page',
+			trackId: 'c',
+			trackIds: ['c', 'a'],
+		});
 	});
 
 	test('a press on the group tuned in pauses and resumes in place', () => {
@@ -393,11 +451,17 @@ describe('bindPageControls', () => {
 		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['a', 'b']);
 		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
 		expect(page.store.getState().currentTimeSeconds).toBe(120);
-		expect(page.onPress).toHaveBeenCalledWith({ trackIds: ['b', 'c'], verb: 'toggle-tracks' });
+		expect(page.onPress).toHaveBeenCalledWith({ action: 'pause', origin: 'page', trackId: 'b' });
 
 		element('[data-pzm-play-tracks]').click();
 
 		expect(page.store.getState().isPaused).toBe(false);
+		expect(page.onPress).toHaveBeenLastCalledWith({
+			action: 'play',
+			isResume: false,
+			origin: 'page',
+			trackId: 'b',
+		});
 		expect(page.store.getState().currentTimeSeconds).toBe(120);
 	});
 
@@ -463,9 +527,10 @@ describe('rows the payload lacks', () => {
 		expect(queuedIds(page)).toEqual(['a', 'b', 'c']);
 		expect(resolveRows).toHaveBeenCalledExactlyOnceWith(['a', 'b', 'c']);
 		expect(page.onPress).toHaveBeenCalledExactlyOnceWith({
-			startTrackId: 'b',
+			action: 'play-tracks',
+			origin: 'page',
+			trackId: 'b',
 			trackIds: ['a', 'b', 'c'],
-			verb: 'play-tracks',
 		});
 	});
 
@@ -514,7 +579,11 @@ describe('rows the payload lacks', () => {
 		element('[data-pzm-queue-tracks]').click();
 
 		await vi.waitFor(() => {
-			expect(page.onPress).toHaveBeenCalledWith({ trackIds: ['b'], verb: 'queue-tracks' });
+			expect(page.onPress).toHaveBeenCalledWith({
+				action: 'queue-tracks',
+				origin: 'page',
+				trackIds: ['b'],
+			});
 		});
 		expect(queuedIds(page)).toEqual(['b']);
 	});
@@ -546,7 +615,12 @@ describe('rows the payload lacks', () => {
 		await settle();
 
 		expect(queuedIds(page)).toEqual(['b']);
-		expect(page.onPress).toHaveBeenCalledExactlyOnceWith({ trackIds: ['b'], verb: 'play-tracks' });
+		expect(page.onPress).toHaveBeenCalledExactlyOnceWith({
+			action: 'play-tracks',
+			origin: 'page',
+			trackId: 'b',
+			trackIds: ['b'],
+		});
 	});
 
 	test('a rejected resolve leaves the queue and position untouched, and the control pressable', async () => {

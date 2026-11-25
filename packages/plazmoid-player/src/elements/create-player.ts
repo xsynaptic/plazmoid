@@ -1,4 +1,4 @@
-import type { PlayerStoreApi } from '@xsynaptic/plazmoid-core';
+import type { PlayerPress, PlayerStoreApi } from '@xsynaptic/plazmoid-core';
 
 import type { PlayerRoot } from '#elements/player-root.ts';
 import type { PlayerLabels } from '#types.ts';
@@ -12,6 +12,7 @@ export interface PlayerOptions {
 	isPanelEnabled?: boolean;
 	isScopeEnabled?: boolean;
 	labels: PlayerLabels;
+	onPress?: (press: PlayerPress) => void;
 	store: PlayerStoreApi;
 	view: ViewStoreApi;
 }
@@ -22,6 +23,7 @@ export function createPlayer({
 	isPanelEnabled,
 	isScopeEnabled,
 	labels,
+	onPress,
 	store,
 	view,
 }: PlayerOptions): PlayerRoot {
@@ -32,6 +34,7 @@ export function createPlayer({
 	root.labels = labels;
 	root.store = store;
 	root.view = view;
+	if (onPress) root.onPress = onPress;
 	if (isArtworkEnabled !== undefined) root.isArtworkEnabled = isArtworkEnabled;
 	if (isOverlayEnabled !== undefined) root.isOverlayEnabled = isOverlayEnabled;
 	if (isPanelEnabled !== undefined) root.isPanelEnabled = isPanelEnabled;

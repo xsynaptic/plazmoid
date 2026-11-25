@@ -1,10 +1,10 @@
 import type { PlayerStore } from '@xsynaptic/plazmoid-core';
 import type { SonicButton } from '@xsynaptic/sonic-ui';
 
-import { canStepBack, canStepForward } from '@xsynaptic/plazmoid-core';
+import { canStepBack, canStepForward, stepPress } from '@xsynaptic/plazmoid-core';
 
 import { buttonPart } from '#elements/button-part.ts';
-import { playbackStore } from '#elements/player-context.ts';
+import { controlOrigin, playbackStore } from '#elements/player-context.ts';
 import { cloneIcon } from '#lib/icons.ts';
 import { renderSonicButton } from '#lib/sonic-button.ts';
 
@@ -24,8 +24,9 @@ export const PlayerStepButton = buttonPart((element) => {
 			button.softDisabled = !isEnabled;
 		},
 		label: direction,
-		press: (state: PlayerStore) => {
+		press: (state: PlayerStore, { report, store }) => {
 			state[direction]();
+			report(stepPress(store.getState(), direction, controlOrigin(element)));
 		},
 		render: () =>
 			renderSonicButton({ className: 'pzm-step-button', icons: [cloneIcon(direction)] }),

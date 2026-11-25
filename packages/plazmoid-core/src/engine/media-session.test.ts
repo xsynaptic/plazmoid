@@ -119,6 +119,51 @@ describe('bindMediaSession', () => {
 		expect(store.getState()).toMatchObject(expected);
 	});
 
+	test.each<[MediaSessionAction, Partial<PlayerStore>, unknown]>([
+		[
+			'play',
+			{ isPaused: true },
+			{ action: 'play', isResume: true, origin: 'media-session', trackId: 'a' },
+		],
+		['pause', { isPaused: false }, { action: 'pause', origin: 'media-session', trackId: 'a' }],
+		[
+			'previoustrack',
+			{ currentTimeSeconds: 100 },
+			{ action: 'previous', origin: 'media-session', trackId: 'a' },
+		],
+		['nexttrack', {}, { action: 'next', origin: 'media-session', trackId: 'b' }],
+	])('a lock screen %s reports the press, with the track it lands on', (action, state, press) => {
+		const store = loadedStore();
+		const onPress = vi.fn();
+
+		bindMediaSession(store, { onPress });
+		store.setState({ currentIndex: 0, durationSeconds: 600, status: 'playing' });
+		store.setState({ ...state, status: 'paused' });
+		mediaSession.handlers.get(action)?.({ action });
+
+		expect(onPress).toHaveBeenCalledExactlyOnceWith(press);
+	});
+
+	test('a lock screen seek reports nothing, nor does the system pausing on its own', () => {
+		const fake = createMockEngine();
+		const store = createWritablePlayerStore({
+			createEngine: fake.createEngine,
+			storage: createMemoryStorage(),
+		});
+		const onPress = vi.fn();
+
+		store.getState().configure({ urls: {} });
+		store.getState().playQueue(release, 'a');
+		fake.callbacks.current?.onStatus('playing');
+		bindMediaSession(store, { onPress });
+		mediaSession.handlers.get('seekforward')?.({ action: 'seekforward', seekOffset: 10 });
+		mediaSession.handlers.get('seekto')?.({ action: 'seekto', seekTime: 42 });
+		fake.callbacks.current?.onStatus('paused');
+
+		expect(store.getState().status).toBe('paused');
+		expect(onPress).not.toHaveBeenCalled();
+	});
+
 	test('clears every handler it set when unbound', () => {
 		const unbind = bindMediaSession(loadedStore());
 

@@ -1,5 +1,6 @@
 import type {
 	PlaybackDiagnostic,
+	PlayerPress,
 	PlayerStoreApi,
 	PlayerUrls,
 	StreamSource,
@@ -18,6 +19,7 @@ import { defaultLabels } from '#labels.ts';
 
 interface PlayerPage {
 	diagnostics: Array<PlaybackDiagnostic>;
+	presses: Array<PlayerPress>;
 	readonly resolveCount: number;
 	store: PlayerStoreApi;
 	view: ViewStoreApi;
@@ -161,6 +163,7 @@ writePayload();
 
 // The store keeps only the latest; a host is sent every one, so a spec reads them all
 const diagnostics: Array<PlaybackDiagnostic> = [];
+const presses: Array<PlayerPress> = [];
 
 startAstroPlayer(() => ({
 	load: async () => {
@@ -169,6 +172,9 @@ startAstroPlayer(() => ({
 		return {
 			onEvent: (event) => {
 				if (event.kind === 'diagnostic') diagnostics.push(event.diagnostic);
+			},
+			onPress: (press) => {
+				presses.push(press);
 			},
 			onReady: exposePlayer,
 		};
@@ -183,6 +189,7 @@ function exposePlayer({ store, view }: AstroPlayer): void {
 	Object.defineProperty(window, 'playerPage', {
 		value: {
 			diagnostics,
+			presses,
 			get resolveCount() {
 				return resolveCount;
 			},

@@ -11,8 +11,8 @@ const cuePoints = [
 	{ artistLine: '', startSeconds: 60, title: 'Middle' },
 ];
 
-function mountOverlay() {
-	const mounted = mount('pzm-overlay');
+function mountOverlay(onPress = vi.fn()) {
+	const mounted = mount('pzm-overlay', { root: { onPress } });
 	const toggle = document.createElement('pzm-overlay-toggle');
 	const dialog = mounted.part.querySelector('dialog');
 	if (!dialog) throw new Error('The overlay rendered no dialog');
@@ -67,6 +67,25 @@ describe('<pzm-overlay>', () => {
 
 		expect(mounted.view.getState().isOverlayOpen).toBe(false);
 		expect(mounted.dialog.childElementCount).toBe(0);
+	});
+
+	test('reports opening, its own controls from the overlay, and nothing on close', async () => {
+		const onPress = vi.fn();
+		const mounted = mountOverlay(onPress);
+
+		mounted.store.getState().playQueue([sampleTrack('a'), sampleTrack('b')], 'a');
+
+		const close = await openOverlay(mounted);
+
+		getByRole(mounted.dialog, 'button', { name: defaultLabels.pause }).click();
+		getByRole(mounted.dialog, 'button', { name: defaultLabels.next }).click();
+		close.click();
+
+		expect(onPress.mock.calls.map(([press]: Array<unknown>) => press)).toStrictEqual([
+			{ action: 'open', part: 'overlay' },
+			{ action: 'pause', origin: 'overlay', trackId: 'a' },
+			{ action: 'next', origin: 'overlay', trackId: 'b' },
+		]);
 	});
 
 	test('closes once the queue empties', async () => {

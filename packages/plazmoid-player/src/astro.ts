@@ -1,7 +1,7 @@
 import type {
-	ControlPress,
 	PageControls,
 	PlaybackEvent,
+	PlayerPress,
 	PlayerStoreApi,
 	PlayerUrls,
 } from '@xsynaptic/plazmoid-core';
@@ -24,7 +24,7 @@ export interface AstroPlayer {
 
 export interface AstroPlayerConfig {
 	load?: () => Promise<AstroPlayerHooks>;
-	player: Omit<PlayerOptions, 'store' | 'view'>;
+	player: Omit<PlayerOptions, 'onPress' | 'store' | 'view'>;
 	seekSeconds?: number;
 	stylesheetUrl: string;
 	urls: (store: PlayerStoreApi) => PlayerUrls;
@@ -32,13 +32,15 @@ export interface AstroPlayerConfig {
 
 export interface AstroPlayerHooks {
 	onEvent?: (event: PlaybackEvent | PlayerEvent) => void;
-	onPress?: (press: ControlPress) => void;
+	onPress?: (press: PlayerPress) => void;
 	onReady?: (player: AstroPlayer) => void;
 }
 
-export type PlayerEvent =
-	| { chunk: string; kind: 'chunk-failed'; reason: 'import' | 'offline' }
-	| { kind: 'opened'; part: 'overlay' | 'panel' };
+export interface PlayerEvent {
+	chunk: string;
+	kind: 'chunk-failed';
+	reason: 'import' | 'offline';
+}
 
 const hostSelector = '[data-pzm-host]';
 
@@ -95,13 +97,13 @@ async function mountPlayer(
 
 	store.getState().configure({ seekSeconds, urls: urls(store) });
 	if (onEvent) {
-		const send = guarded(onEvent);
+		const send = core.guarded(onEvent);
 
 		core.bindPlaybackEvents(store, send);
-		bindPlayerEvents(view, chunkError, send);
+		bindChunkEvents(chunkError, send);
 	}
 
-	const root = createPlayer({ ...player, store, view });
+	const root = createPlayer({ ...player, ...(onPress ? { onPress } : {}), store, view });
 
 	host.append(root);
 
@@ -110,35 +112,20 @@ async function mountPlayer(
 	presses.release();
 	bindAstroRouter(view, controls);
 	// Once per document, since Safari reconnects the persisted root on every navigation and a root's binding would clear the lock screen each time
-	core.bindMediaSession(store);
+	core.bindMediaSession(store, { onPress });
 	onReady?.({ controls, root, store, view });
 }
 
 // A failed chunk reaches the host only through `reportError`, which fires `error` on the window
-function bindPlayerEvents(
-	view: ViewStoreApi,
+function bindChunkEvents(
 	chunkError: typeof LazyModuleError,
 	send: (event: PlayerEvent) => void,
 ): void {
-	view.subscribe((next, previous) => {
-		if (next.isOverlayOpen && !previous.isOverlayOpen) send({ kind: 'opened', part: 'overlay' });
-		if (next.isPanelOpen && !previous.isPanelOpen) send({ kind: 'opened', part: 'panel' });
-	});
 	window.addEventListener('error', ({ error }: ErrorEvent) => {
 		if (error instanceof chunkError) {
 			send({ chunk: error.chunk, kind: 'chunk-failed', reason: error.reason });
 		}
 	});
-}
-
-function guarded<Event>(handler: (event: Event) => void): (event: Event) => void {
-	return (event) => {
-		try {
-			handler(event);
-		} catch (error) {
-			reportError(error);
-		}
-	};
 }
 
 function readHostData(host: Element): unknown {

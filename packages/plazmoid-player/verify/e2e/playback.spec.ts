@@ -62,6 +62,11 @@ test('pause and resume keep the loaded source', async ({ harness, page }) => {
 
 	expect(await harness.read()).toMatchObject({ element: { currentSrc: element?.currentSrc } });
 	expect(await harness.observed()).toMatchObject({ loadstarts });
+	expect(await page.evaluate(() => window.playerPage?.presses)).toMatchObject([
+		{ action: 'play-track', origin: 'page', trackId: 'long' },
+		{ action: 'pause', trackId: 'long' },
+		{ action: 'play', isResume: true, trackId: 'long' },
+	]);
 });
 
 test('seek forward moves by the seek step and keeps playing', async ({ harness, page }) => {

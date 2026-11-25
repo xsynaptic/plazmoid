@@ -7,6 +7,7 @@ import { monitorPlayback } from '#monitor-playback.ts';
 
 interface MediaFields {
 	currentTime: number;
+	duration: number;
 	paused: boolean;
 	seeking: boolean;
 }
@@ -22,6 +23,7 @@ afterEach(() => {
 function createPage(overrides: Partial<PlaybackOptions> = {}) {
 	const media = Object.assign(new EventTarget(), {
 		currentTime: 0,
+		duration: NaN,
 		paused: true,
 		seeking: false,
 	});
@@ -135,6 +137,24 @@ describe('monitorPlayback', () => {
 		page.emit('pause', { paused: true });
 
 		expect(page.reports.map((report) => report.heardSeconds)).toEqual([35]);
+	});
+
+	test('a track shorter than the minimum reports once heard to its last second, with its duration', () => {
+		const page = createPage({ minimumSeconds: 30 });
+
+		page.bind();
+		page.emit('playing', { duration: 20.6, paused: false });
+		page.hear(18);
+		page.emit('pause', { paused: true });
+
+		expect(page.reports).toHaveLength(0);
+
+		page.emit('playing', { paused: false });
+		page.hear(1);
+		page.emit('emptied', { duration: NaN, paused: true });
+
+		expect(page.reports).toHaveLength(1);
+		expect(page.reports[0]).toMatchObject({ durationSeconds: 20, heardSeconds: 19 });
 	});
 
 	test('a playback the identify hook declines is never reported', () => {
@@ -251,6 +271,7 @@ interface Checkpoint {
 }
 
 interface SimulatedPlayback extends Pick<PlaybackOptions, 'minimumSeconds' | 'reportEverySeconds'> {
+	duration: number;
 	isPlayingAtBind: boolean;
 	steps: Array<EngineStep>;
 }
@@ -291,6 +312,7 @@ const engineSteps = fc.array(
 );
 
 const engineOrderedPlayback = fc.record({
+	duration: fc.constantFrom(NaN, 2.5, 600.5),
 	isPlayingAtBind: fc.boolean(),
 	minimumSeconds: fc.constantFrom(0, 3),
 	reportEverySeconds: fc.constantFrom(2, 300),
@@ -301,9 +323,10 @@ const engineOrderedPlayback = fc.record({
 // `isPositionLate` covers engines where the new position only shows up in a `timeupdate` fired mid-seek
 // Playback ends with a pause; a track switch fires `emptied` and no pause, because `load()` discards the one `reset()` queued
 // `load()` also fires a `timeupdate` when it resets a nonzero position to 0
-function simulateEngine({ isPlayingAtBind, steps, ...options }: SimulatedPlayback) {
+function simulateEngine({ duration, isPlayingAtBind, steps, ...options }: SimulatedPlayback) {
 	const media = Object.assign(new EventTarget(), {
 		currentTime: 0,
+		duration,
 		paused: !isPlayingAtBind,
 		seeking: false,
 	});
@@ -359,7 +382,7 @@ function simulateEngine({ isPlayingAtBind, steps, ...options }: SimulatedPlaybac
 			heardBySession.push(0);
 		}
 
-		emit('playing', { paused: false });
+		emit('playing', { duration, paused: false });
 	}
 
 	const engine: Record<EngineStep['kind'], (step: EngineStep) => void> = {
@@ -391,7 +414,7 @@ function simulateEngine({ isPlayingAtBind, steps, ...options }: SimulatedPlaybac
 			seek(Math.max(0, media.currentTime + step.quarters / 4), step.isPositionLate);
 		},
 		switch: () => {
-			emit('emptied', { paused: true });
+			emit('emptied', { duration: NaN, paused: true });
 			if (media.currentTime !== 0) emit('timeupdate', { currentTime: 0 });
 			checkpoint();
 			hasEnded = false;
@@ -425,17 +448,27 @@ function simulateEngine({ isPlayingAtBind, steps, ...options }: SimulatedPlaybac
 	return { checkpoints, reports };
 }
 
+function reportFromSeconds(minimumSeconds: number, durationSeconds: number | undefined): number {
+	if (durationSeconds === undefined) return minimumSeconds;
+
+	return Math.min(minimumSeconds, durationSeconds - 1);
+}
+
 describe('monitorPlayback over any engine-ordered playback', () => {
 	test.prop([engineOrderedPlayback])(
 		'a listen reports only whole seconds heard, and has sent them all by every pause, hide, end or switch',
 		(playback) => {
 			const { checkpoints, reports } = simulateEngine(playback);
-			const { minimumSeconds } = playback;
+			const durationSeconds = Number.isFinite(playback.duration)
+				? Math.floor(playback.duration)
+				: undefined;
+			const reportFrom = reportFromSeconds(playback.minimumSeconds, durationSeconds);
 			const sessionByListen = new Map<string, number | undefined>();
 
 			for (const report of reports) {
 				expect(report.heardSeconds).toBe(Math.floor(report.heardBySimulator ?? NaN));
-				expect(report.heardSeconds).toBeGreaterThanOrEqual(minimumSeconds);
+				expect(report.heardSeconds).toBeGreaterThanOrEqual(reportFrom);
+				expect(report.durationSeconds).toBe(durationSeconds);
 				expect(sessionByListen.get(report.listenId) ?? report.session).toBe(report.session);
 
 				sessionByListen.set(report.listenId, report.session);
@@ -445,7 +478,7 @@ describe('monitorPlayback over any engine-ordered playback', () => {
 
 			for (const { heard, reportsSent, session } of checkpoints) {
 				const sent = reports.slice(0, reportsSent).findLast((report) => report.session === session);
-				const isReportable = Math.floor(heard) >= Math.max(1, minimumSeconds);
+				const isReportable = Math.floor(heard) >= Math.max(1, reportFrom);
 
 				expect(sent?.heardSeconds).toBe(isReportable ? Math.floor(heard) : undefined);
 			}

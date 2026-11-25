@@ -27,8 +27,9 @@ export const PlayerPanelToggle = buttonPart(() => ({
 		bindPreload({ preload: panelSurfaceModule.preload, store, trigger: button }, signal);
 	},
 	label: 'waveformPanel',
-	press: (view) => {
+	press: (view, { report }) => {
 		view.togglePanel();
+		if (!view.isPanelOpen) report({ action: 'open', part: 'panel' });
 	},
 	render: () => {
 		const button = renderSonicButton({

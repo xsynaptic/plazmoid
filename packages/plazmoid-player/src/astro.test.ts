@@ -1,5 +1,6 @@
 import type { PlayerUrls, StreamResolution, Track } from '@xsynaptic/plazmoid-core';
 
+import { getByRole } from '@testing-library/dom';
 import { loadedTrack } from '@xsynaptic/plazmoid-core';
 import { heldPressAttribute } from '@xsynaptic/plazmoid-core/constants';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -267,7 +268,7 @@ describe('startAstroPlayer', () => {
 		expect(root.querySelector('pzm-seek-button')?.getAttribute('seconds')).toBe('-15');
 	});
 
-	test('playback failures, opened parts and failed chunks all reach onEvent', async () => {
+	test('playback failures and failed chunks reach onEvent, and opening a part does not', async () => {
 		const events: Array<Parameters<NonNullable<AstroPlayerHooks['onEvent']>>[0]> = [];
 
 		stubIdle({ isIdle: true });
@@ -300,8 +301,6 @@ describe('startAstroPlayer', () => {
 			});
 		});
 		expect(events.filter((event) => event.kind !== 'failed')).toStrictEqual([
-			{ kind: 'opened', part: 'overlay' },
-			{ kind: 'opened', part: 'panel' },
 			{ chunk: 'tray', kind: 'chunk-failed', reason: 'offline' },
 		]);
 	});
@@ -317,15 +316,35 @@ describe('startAstroPlayer', () => {
 		stubIdle({ isIdle: true });
 		mountPage({ hasPayload: true });
 
-		const { view } = await startReady({ load: () => Promise.resolve({ onEvent }) });
+		await startReady({ load: () => Promise.resolve({ onEvent }) });
 
-		view.getState().setOverlayOpen(true);
-		view.getState().setPanelOpen(true);
+		window.dispatchEvent(new ErrorEvent('error', { error: new LazyModuleError('tray', 'import') }));
+		window.dispatchEvent(
+			new ErrorEvent('error', { error: new LazyModuleError('panel', 'import') }),
+		);
 
 		expect(onEvent).toHaveBeenCalledTimes(2);
 		expect(reportError).toHaveBeenCalledTimes(2);
 		expect(reportError).toHaveBeenCalledWith(failure);
-		expect(view.getState().isPanelOpen).toBe(true);
+	});
+
+	test('presses on the page and in the player reach the one onPress', async () => {
+		const onPress = vi.fn();
+
+		stubIdle({ isIdle: true });
+		mountPage({ hasPayload: true });
+
+		const { root } = await startReady({ load: () => Promise.resolve({ onPress }) });
+
+		control('[data-pzm-play-track]').click();
+		getByRole(root, 'button', { name: defaultLabels.pause }).click();
+		getByRole(root, 'button', { name: defaultLabels.expand }).click();
+
+		expect(onPress.mock.calls.map(([press]: Array<unknown>) => press)).toStrictEqual([
+			{ action: 'play-track', origin: 'page', trackId: 'a' },
+			{ action: 'pause', origin: 'bar', trackId: 'a' },
+			{ action: 'open', part: 'overlay' },
+		]);
 	});
 
 	test("hands configure the host's JSON script, parsed", async () => {
@@ -403,6 +422,10 @@ describe('startAstroPlayer', () => {
 
 		control('[data-pzm-play-track]').click();
 
-		expect(onPress).toHaveBeenCalledExactlyOnceWith({ trackIds: ['a'], verb: 'play-track' });
+		expect(onPress).toHaveBeenCalledExactlyOnceWith({
+			action: 'play-track',
+			origin: 'page',
+			trackId: 'a',
+		});
 	});
 });

@@ -1,3 +1,4 @@
+import type { PlayerPress } from '#player-press.ts';
 import type { PlayerStore, PlayerStoreApi } from '#store/player-types.ts';
 import type { Track } from '#types.ts';
 
@@ -21,16 +22,11 @@ import {
 	trackIdAttribute,
 } from '#constants.ts';
 import { bind } from '#lib/bind.ts';
+import { guarded } from '#lib/guarded.ts';
+import { togglePress } from '#player-press.ts';
 import { resolveTracks } from '#store/resolve-tracks.ts';
 import { currentCue, loadedTrack } from '#store/selectors.ts';
 import { toStoredTrack } from '#store/stored-shapes.ts';
-
-// The resolved press, so a host reads the verb rather than re-deriving it from the DOM
-export interface ControlPress {
-	startTrackId?: string;
-	trackIds: Array<string>;
-	verb: 'play-track' | 'play-tracks' | 'queue-track' | 'queue-tracks' | 'toggle-tracks';
-}
 
 export interface PageControls {
 	refresh: () => void;
@@ -38,11 +34,11 @@ export interface PageControls {
 }
 
 interface PageControlOptions {
-	onPress?: ((press: ControlPress) => void) | undefined;
+	onPress?: ((press: PlayerPress) => void) | undefined;
 }
 
 interface RowPress {
-	land: (state: PlayerStore, tracks: Array<Track>) => ControlPress;
+	land: (store: PlayerStoreApi, tracks: Array<Track>) => PlayerPress | undefined;
 	trackIds: ReadonlyArray<string>;
 }
 
@@ -63,13 +59,14 @@ export function bindPageControls(
 	const { signal } = connection;
 	const readPayload = payloadReader(page);
 	const selectRowState = rowStateSelector();
+	const report = guarded((press: PlayerPress | undefined) => {
+		if (press) onPress?.(press);
+	});
 
 	let latestPress = 0;
 
 	const land = (press: RowPress, tracks: Array<Track>): void => {
-		const landed = press.land(store.getState(), tracks);
-
-		onPress?.(landed);
+		report(press.land(store, tracks));
 	};
 
 	const landResolved = async (
@@ -113,14 +110,13 @@ export function bindPageControls(
 		// A page without a payload can still pause or jump to what is queued
 		const payload = readPayload() ?? [];
 		const press = pressControl(store.getState(), control, payload);
-		if (!press) return;
 
-		if ('land' in press) {
+		if (press && 'land' in press) {
 			gather(press, payload);
 			return;
 		}
 
-		onPress?.(press);
+		report(press);
 	};
 
 	// A queue restored from storage can predate this build; a press on a track already queued jumps to the stored copy
@@ -278,17 +274,21 @@ function pressControl(
 	state: PlayerStore,
 	control: Element,
 	payload: Array<Track>,
-): ControlPress | RowPress | undefined {
+): PlayerPress | RowPress | undefined {
 	if (control.hasAttribute(playTracksAttribute)) return pressGroup(state, control);
 
 	const queueTracks = attribute(control, queueTracksAttribute);
 
 	if (queueTracks !== undefined) {
 		return {
-			land: (latest, group) => {
-				latest.queueTracks(group);
+			land: (store, group) => {
+				store.getState().queueTracks(group);
 
-				return { trackIds: group.map((track) => track.trackId), verb: 'queue-tracks' };
+				return {
+					action: 'queue-tracks',
+					origin: 'page',
+					trackIds: group.map((track) => track.trackId),
+				};
 			},
 			trackIds: queueTracks.split(' '),
 		};
@@ -298,10 +298,10 @@ function pressControl(
 
 	if (queueTrack) {
 		return {
-			land: (latest, tracks) => {
-				latest.queueTracks(tracks);
+			land: (store, tracks) => {
+				store.getState().queueTracks(tracks);
 
-				return { trackIds: [queueTrack], verb: 'queue-track' };
+				return { action: 'queue-track', origin: 'page', trackId: queueTrack };
 			},
 			trackIds: [queueTrack],
 		};
@@ -313,24 +313,30 @@ function pressControl(
 	return pressTrack(state, playTrack, payload);
 }
 
-function pressGroup(state: PlayerStore, control: Element): ControlPress | RowPress {
+function pressGroup(state: PlayerStore, control: Element): PlayerPress | RowPress | undefined {
 	if (isGroupLoaded(control, loadedTrack(state)?.trackId)) {
+		const toggle = togglePress(state, 'page');
+
 		state.togglePaused();
 
-		return { trackIds: groupIds(control), verb: 'toggle-tracks' };
+		return toggle;
 	}
 
 	const playFrom = attribute(control, playFromAttribute);
 
 	return {
-		land: (latest, group) => {
-			const trackIds = group.map((track) => track.trackId);
+		land: (store, group) => {
+			store.getState().playQueue(group, playFrom);
 
-			latest.playQueue(group, playFrom);
+			const started = loadedTrack(store.getState())?.trackId;
+			if (started === undefined) return;
 
-			if (playFrom === undefined) return { trackIds, verb: 'play-tracks' };
-
-			return { startTrackId: playFrom, trackIds, verb: 'play-tracks' };
+			return {
+				action: 'play-tracks',
+				origin: 'page',
+				trackId: started,
+				trackIds: group.map((track) => track.trackId),
+			};
 		},
 		trackIds: groupIds(control),
 	};
@@ -340,15 +346,15 @@ function pressTrack(
 	state: PlayerStore,
 	trackId: string,
 	payload: Array<Track>,
-): ControlPress | RowPress {
-	const press: ControlPress = { trackIds: [trackId], verb: 'play-track' };
+): PlayerPress | RowPress | undefined {
+	const press: PlayerPress = { action: 'play-track', origin: 'page', trackId };
 	const isInPayload = trackWithId(trackId, payload) !== undefined;
 
 	// An empty queue takes the whole payload, so the rest of the release follows the pressed track
 	if (state.queue.length === 0) {
 		return {
-			land: (latest, tracks) => {
-				latest.playQueue(tracks, trackId);
+			land: (store, tracks) => {
+				store.getState().playQueue(tracks, trackId);
 
 				return press;
 			},
@@ -359,20 +365,28 @@ function pressTrack(
 	// The queue is the store's, so a queued track still plays when the payload lacks it
 	const queued = isInPayload ? undefined : trackWithId(trackId, state.queue);
 
-	if (queued) {
-		state.playTrack(queued);
-
-		return press;
-	}
+	if (queued) return playPressed(state, queued, press);
 
 	return {
-		land: (latest, [track]) => {
-			if (track) latest.playTrack(track);
+		land: (store, [track]) => {
+			if (!track) return press;
 
-			return press;
+			return playPressed(store.getState(), track, press);
 		},
 		trackIds: [trackId],
 	};
+}
+
+function playPressed(
+	state: PlayerStore,
+	track: Track,
+	press: PlayerPress,
+): PlayerPress | undefined {
+	const landed = loadedTrack(state)?.trackId === track.trackId ? togglePress(state, 'page') : press;
+
+	state.playTrack(track);
+
+	return landed;
 }
 
 function rowStateSelector(): (state: PlayerStore) => RowState {

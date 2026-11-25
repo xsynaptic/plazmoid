@@ -18,7 +18,7 @@ export class PlayerQueueActions extends PlayerElement {
 	readonly #parts = renderActionParts();
 
 	protected connect(signal: AbortSignal): void {
-		const { labels, store } = playerContext(this);
+		const { labels, report, store } = playerContext(this);
 		const { actions, clear, shuffle } = this.#parts;
 
 		writeLabel(shuffle, labels.shuffle);
@@ -41,7 +41,10 @@ export class PlayerQueueActions extends PlayerElement {
 		clear.addEventListener(
 			'click',
 			() => {
+				const trackCount = store.getState().queue.length;
+
 				store.getState().clearQueue();
+				report({ action: 'clear', origin: 'tray', trackCount });
 			},
 			{ signal },
 		);

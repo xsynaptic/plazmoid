@@ -1,8 +1,9 @@
-import type { PlayerStore, QueuedTrack } from '@xsynaptic/plazmoid-core';
+import type { PlayerPress, PlayerStore, QueuedTrack } from '@xsynaptic/plazmoid-core';
 
-import { bind, canMove } from '@xsynaptic/plazmoid-core';
+import { bind, canMove, togglePress } from '@xsynaptic/plazmoid-core';
 
 import type { PlayerContext } from '#elements/player-context.ts';
+import type { RowPress } from '#elements/tray/tray-rows.ts';
 
 import { playerContext } from '#elements/player-context.ts';
 import { PlayerElement } from '#elements/player-element.ts';
@@ -42,11 +43,9 @@ export class PlayerTray extends PlayerElement {
 	}
 }
 
-function bindList(
-	{ empty, list }: TrayParts,
-	{ labels, store }: PlayerContext,
-	signal: AbortSignal,
-): void {
+function bindList({ empty, list }: TrayParts, context: PlayerContext, signal: AbortSignal): void {
+	const { labels, store } = context;
+
 	// A reconnect starts a fresh key map, which would leave the previous connection's rows behind
 	list.replaceChildren();
 	empty.textContent = labels.empty;
@@ -57,12 +56,8 @@ function bindList(
 		'click',
 		(event) => {
 			const press = rowPressAt(event.target);
-			if (!press || press.control === 'handle') return;
 
-			const index = indexOfQueued(store.getState().queue, press.queueId);
-
-			if (press.control === 'pick') store.getState().playAt(index);
-			else store.getState().removeAt(index);
+			if (press && press.control !== 'handle') pressRow(context, press);
 		},
 		{ signal },
 	);
@@ -80,14 +75,16 @@ function bindList(
 
 function bindReorder(
 	{ list, status }: TrayParts,
-	{ labels, store }: PlayerContext,
+	{ labels, report, store }: PlayerContext,
 	signal: AbortSignal,
 ): void {
 	const move = (from: number, to: number): void => {
-		const total = store.getState().queue.length;
+		const { queue } = store.getState();
+		const trackId = queue[from]?.trackId;
 
 		store.getState().moveTrack(from, to);
-		status.textContent = formatTemplate(labels.moved, { position: to + 1, total });
+		status.textContent = formatTemplate(labels.moved, { position: to + 1, total: queue.length });
+		if (trackId !== undefined) report({ action: 'move', from, origin: 'tray', to, trackId });
 	};
 	const drag = createRowDrag(() => list, move, signal);
 
@@ -130,6 +127,27 @@ function bindReorder(
 
 function indexOfQueued(queue: ReadonlyArray<QueuedTrack>, queueId: string): number {
 	return queue.findIndex((track) => track.queueId === queueId);
+}
+
+function pressRow({ report, store }: PlayerContext, { control, queueId }: RowPress): void {
+	const state = store.getState();
+	const index = indexOfQueued(state.queue, queueId);
+	const trackId = state.queue[index]?.trackId;
+	if (trackId === undefined) return;
+
+	if (control === 'remove') {
+		state.removeAt(index);
+		report({ action: 'remove', origin: 'tray', trackId });
+		return;
+	}
+
+	const press: PlayerPress | undefined =
+		index === state.currentIndex
+			? togglePress(state, 'tray')
+			: { action: 'pick', origin: 'tray', trackId };
+
+	state.playAt(index);
+	report(press);
 }
 
 function renderTrayParts(): TrayParts {

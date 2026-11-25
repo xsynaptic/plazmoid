@@ -2,6 +2,7 @@ import type { TerminalStatus } from '#store/playback-controller.ts';
 import type { PlayerStore, PlayerStoreApi } from '#store/player-types.ts';
 import type { PlaybackDiagnostic, PlaybackError } from '#types.ts';
 
+import { guarded } from '#lib/guarded.ts';
 import { isTerminalStatus } from '#store/playback-controller.ts';
 import { loadedTrack } from '#store/selectors.ts';
 
@@ -19,15 +20,11 @@ export function bindPlaybackEvents(
 	store: PlayerStoreApi,
 	listener: (event: PlaybackEvent) => void,
 ): () => void {
+	// A throw would escape into whichever action wrote the state, and skip the rest of it
+	const send = guarded(listener);
+
 	return store.subscribe((state, previous) => {
-		for (const event of playbackEvents(state, previous)) {
-			// A throw would escape into whichever action wrote the state, and skip the rest of it
-			try {
-				listener(event);
-			} catch (error) {
-				reportError(error);
-			}
-		}
+		for (const event of playbackEvents(state, previous)) send(event);
 	});
 }
 

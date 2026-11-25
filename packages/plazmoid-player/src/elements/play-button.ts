@@ -1,10 +1,10 @@
 import type { PlayerStore } from '@xsynaptic/plazmoid-core';
 import type { SonicButton } from '@xsynaptic/sonic-ui';
 
-import { isAwaitingPlayback } from '@xsynaptic/plazmoid-core';
+import { isAwaitingPlayback, togglePress } from '@xsynaptic/plazmoid-core';
 
 import { buttonPart } from '#elements/button-part.ts';
-import { playbackStore } from '#elements/player-context.ts';
+import { controlOrigin, playbackStore } from '#elements/player-context.ts';
 import { legendIcons, renderSonicButton } from '#lib/sonic-button.ts';
 
 interface PlayButtonView {
@@ -13,7 +13,7 @@ interface PlayButtonView {
 	isWaiting: boolean;
 }
 
-export const PlayerPlayButton = buttonPart(() => ({
+export const PlayerPlayButton = buttonPart((element) => ({
 	apply: (button: SonicButton, view: PlayButtonView, labels) => {
 		button.disabled = view.isDisabled;
 		button.legend = view.isPaused ? 'play' : 'pause';
@@ -22,8 +22,11 @@ export const PlayerPlayButton = buttonPart(() => ({
 			.querySelector('.sonic-button-cap')
 			?.toggleAttribute('data-pzm-essential-motion', view.isWaiting);
 	},
-	press: (state) => {
+	press: (state: PlayerStore, { report }) => {
+		const press = togglePress(state, controlOrigin(element));
+
 		state.togglePaused();
+		report(press);
 	},
 	render: () =>
 		renderSonicButton({

@@ -1,5 +1,5 @@
 import { getByRole } from '@testing-library/dom';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { defaultLabels } from '#labels.ts';
 import { mount, sampleTrack } from '#test/mount.ts';
@@ -10,7 +10,11 @@ afterEach(() => {
 
 describe('<pzm-step-button>', () => {
 	test('keeps focus on next once its own press leaves nothing after the current track', () => {
-		const { part, store } = mount('pzm-step-button', { attributes: { direction: 'next' } });
+		const onPress = vi.fn();
+		const { part, store } = mount('pzm-step-button', {
+			attributes: { direction: 'next' },
+			root: { onPress },
+		});
 
 		store.getState().playQueue([sampleTrack('a'), sampleTrack('b')], 'a');
 
@@ -26,5 +30,10 @@ describe('<pzm-step-button>', () => {
 		next.click();
 
 		expect(store.getState().currentIndex).toBe(1);
+		expect(onPress).toHaveBeenCalledExactlyOnceWith({
+			action: 'next',
+			origin: 'bar',
+			trackId: 'b',
+		});
 	});
 });

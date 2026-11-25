@@ -1,6 +1,7 @@
 // Structural, so tests drive a plain EventTarget; an HTMLMediaElement satisfies it
 export interface PlaybackMedia extends EventTarget {
 	readonly currentTime: number;
+	readonly duration: number;
 	readonly paused: boolean;
 	readonly seeking: boolean;
 }
@@ -8,7 +9,7 @@ export interface PlaybackMedia extends EventTarget {
 export interface PlaybackOptions {
 	// Asked as each listen opens; `undefined` leaves that playback unreported
 	identify: () => string | undefined;
-	// Heard seconds before a listen reports at all
+	// Heard seconds before a listen reports at all; a shorter track needs all but its last second
 	minimumSeconds?: number;
 	onReport: (report: PlaybackReport) => void;
 	reportEverySeconds?: number;
@@ -16,12 +17,15 @@ export interface PlaybackOptions {
 
 // `heardSeconds` is the listen's running total, so a report lost or repeated costs nothing
 export interface PlaybackReport {
+	durationSeconds?: number;
 	heardSeconds: number;
 	listenId: string;
 	trackId: string;
 }
 
 interface OpenListen {
+	// Kept from while it played, since `emptied` resets the element's duration before the close reads it
+	durationSeconds: number | undefined;
 	heardSeconds: number;
 	listenId: string;
 	// The last whole total sent; an unchanged total is not worth a request
@@ -46,17 +50,35 @@ export function monitorPlayback(media: PlaybackMedia, options: PlaybackOptions):
 		const trackId = identify();
 		if (trackId === undefined) return;
 
-		listen = { heardSeconds: 0, listenId: crypto.randomUUID(), reportedSeconds: 0, trackId };
+		listen = {
+			durationSeconds: undefined,
+			heardSeconds: 0,
+			listenId: crypto.randomUUID(),
+			reportedSeconds: 0,
+			trackId,
+		};
+		readDuration(listen);
+	}
+
+	function readDuration(open: OpenListen): void {
+		if (Number.isFinite(media.duration)) open.durationSeconds = Math.floor(media.duration);
 	}
 
 	function report(): void {
 		if (!listen) return;
 
 		const total = Math.floor(listen.heardSeconds);
-		if (total < minimumSeconds || total === listen.reportedSeconds) return;
+		const { durationSeconds, listenId, trackId } = listen;
+		if (total < reportFromSeconds(minimumSeconds, durationSeconds)) return;
+		if (total === listen.reportedSeconds) return;
 
 		listen.reportedSeconds = total;
-		onReport({ heardSeconds: total, listenId: listen.listenId, trackId: listen.trackId });
+		onReport({
+			...(durationSeconds === undefined ? {} : { durationSeconds }),
+			heardSeconds: total,
+			listenId,
+			trackId,
+		});
 	}
 
 	function closeListen(): void {
@@ -72,6 +94,7 @@ export function monitorPlayback(media: PlaybackMedia, options: PlaybackOptions):
 
 		if (!listen || media.paused || media.seeking) return;
 
+		readDuration(listen);
 		if (step > 0 && step <= maximumStepSeconds) listen.heardSeconds += step;
 		if (listen.heardSeconds - listen.reportedSeconds >= reportEverySeconds) report();
 	}
@@ -112,4 +135,10 @@ export function monitorPlayback(media: PlaybackMedia, options: PlaybackOptions):
 		report();
 		holding.abort();
 	};
+}
+
+function reportFromSeconds(minimumSeconds: number, durationSeconds: number | undefined): number {
+	if (durationSeconds === undefined) return minimumSeconds;
+
+	return Math.min(minimumSeconds, durationSeconds - 1);
 }

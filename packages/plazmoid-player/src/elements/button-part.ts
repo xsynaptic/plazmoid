@@ -12,7 +12,7 @@ interface ButtonPart<State, Selected, Button> {
 	apply: (button: Button, selected: Selected, labels: PlayerLabels) => void;
 	connect?: (button: Button, context: PlayerContext, signal: AbortSignal) => void;
 	label?: keyof PlayerLabels;
-	press?: (state: State) => void;
+	press?: (state: State, context: PlayerContext) => void;
 	render: () => Button;
 	select: (state: State) => Selected;
 	// The one store the part selects from and presses on
@@ -32,6 +32,7 @@ export function buttonPart<State, Selected, Button extends HTMLButtonElement | S
 			const part = readPart(this);
 			const context = playerContext(this);
 			const { labels } = context;
+			const { press } = part;
 
 			if (this.#button === undefined) this.#button = part.render();
 
@@ -46,7 +47,11 @@ export function buttonPart<State, Selected, Button extends HTMLButtonElement | S
 						part.apply(button, selected, labels);
 					},
 					button,
-					press: part.press,
+					press:
+						press &&
+						((state: State) => {
+							press(state, context);
+						}),
 					select: part.select,
 					store: part.store(context),
 				},

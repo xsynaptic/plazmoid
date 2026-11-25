@@ -21,6 +21,7 @@ export interface PlayerActions {
 	getCurrentTime: () => number | undefined;
 	// Created on the first load, so an observer waits for it
 	getMediaElement: () => HTMLMediaElement | undefined;
+	hasPlayed: (queueId: string) => boolean;
 	// Replaces the queue and unloads whatever played; nothing plays until a gesture asks
 	loadQueue: (tracks: ReadonlyArray<Track>) => void;
 	// A shuffled play order moves with the track rather than reshuffling

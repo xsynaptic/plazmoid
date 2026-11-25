@@ -1,4 +1,9 @@
-import type { PlayerStatus, PlayerStore, PlayerStoreApi } from '@xsynaptic/plazmoid-core';
+import type {
+	PlayerPress,
+	PlayerStatus,
+	PlayerStore,
+	PlayerStoreApi,
+} from '@xsynaptic/plazmoid-core';
 
 import { audibleVolume, bind, isAwaitingPlayback, isDetailPending } from '@xsynaptic/plazmoid-core';
 
@@ -67,8 +72,16 @@ export class PlayerRoot extends PlayerElement {
 	get labels(): PlayerLabels | undefined {
 		return this.#labels;
 	}
+
 	set labels(labels: PlayerLabels | undefined) {
 		this.#labels = labels;
+	}
+
+	get onPress(): ((press: PlayerPress) => void) | undefined {
+		return this.#onPress;
+	}
+	set onPress(onPress: ((press: PlayerPress) => void) | undefined) {
+		this.#onPress = onPress;
 	}
 
 	get store(): PlayerStoreApi | undefined {
@@ -95,6 +108,8 @@ export class PlayerRoot extends PlayerElement {
 
 	#labels: PlayerLabels | undefined;
 
+	#onPress: ((press: PlayerPress) => void) | undefined;
+
 	#store: PlayerStoreApi | undefined;
 
 	#view: undefined | ViewStoreApi;
@@ -105,6 +120,7 @@ export class PlayerRoot extends PlayerElement {
 		this.upgradeProperty('isPanelEnabled');
 		this.upgradeProperty('isScopeEnabled');
 		this.upgradeProperty('labels');
+		this.upgradeProperty('onPress');
 		this.upgradeProperty('store');
 		this.upgradeProperty('view');
 

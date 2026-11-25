@@ -28,7 +28,12 @@ interface MountOptions {
 	root?: Partial<
 		Pick<
 			PlayerRoot,
-			'isArtworkEnabled' | 'isOverlayEnabled' | 'isPanelEnabled' | 'isScopeEnabled' | 'labels'
+			| 'isArtworkEnabled'
+			| 'isOverlayEnabled'
+			| 'isPanelEnabled'
+			| 'isScopeEnabled'
+			| 'labels'
+			| 'onPress'
 		>
 	>;
 }

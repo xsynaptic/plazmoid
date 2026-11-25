@@ -2,10 +2,13 @@ export type { AudioEngine, AudioEngineCallbacks, CreateAudioEngine } from '#engi
 export { whenMediaElement } from '#engine/media-element.ts';
 export { bindMediaSession } from '#engine/media-session.ts';
 export { bind } from '#lib/bind.ts';
+export { guarded } from '#lib/guarded.ts';
 export { createMemoryStorage, readStored, removeStored, writeStored } from '#lib/storage.ts';
 export type { PlayerStorage } from '#lib/storage.ts';
 export { bindPageControls } from '#page-controls.ts';
-export type { ControlPress, PageControls } from '#page-controls.ts';
+export type { PageControls } from '#page-controls.ts';
+export { stepPress, togglePress } from '#player-press.ts';
+export type { PlayerPress, PressOrigin } from '#player-press.ts';
 export { cueIndexAt } from '#queue/cue-points.ts';
 export { toDurationSeconds } from '#queue/queue.ts';
 export { canMove, movedIndex } from '#queue/reorder.ts';

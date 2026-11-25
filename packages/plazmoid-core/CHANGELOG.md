@@ -1,5 +1,11 @@
 # @xsynaptic/plazmoid-core
 
+## 0.6.0
+
+### Minor Changes
+
+- `ControlPress` becomes `PlayerPress`, and `bindMediaSession` takes `onPress`.
+
 ## 0.5.0
 
 ### Minor Changes
