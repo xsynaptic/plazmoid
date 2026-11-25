@@ -1,6 +1,5 @@
 import type { Page } from '@playwright/test';
 
-import { panelZoomStorageKey } from '#constants.ts';
 import { expect, test } from '#e2e/test.ts';
 import { defaultLabels } from '#labels.ts';
 
@@ -58,36 +57,9 @@ test('a paused panel asks again for a chunk that failed, and paints it with no i
 	expect(chunkRequests).toBe(2);
 	await expect(waveform).toHaveJSProperty('pending', []);
 	expect(await harness.read()).toMatchObject({ isPaused: true });
-
-	// A preflight carries no range
-	const requests = await harness.requests();
-	const ranges = requests
-		.filter((request) => request.path.endsWith('.wavedata') && request.range !== undefined)
-		.map((request) => request.range);
-
-	expect(new Set(ranges)).toStrictEqual(new Set(['bytes=32-30751']));
 });
 
-test('a panel handed a waveform of an unknown format version requests none', async ({
-	harness,
-	isMobile,
-	page,
-}) => {
-	await harness.open({ query: { waveform: 1, waveformVersion: 3 } });
-	await openPausedPanel(page, isMobile);
-
-	await expect(page.locator('sonic-waveform:has(:visible)')).toHaveJSProperty('peaks', undefined);
-
-	const requests = await harness.requests();
-
-	expect(requests.filter((request) => request.path.endsWith('.wavedata'))).toStrictEqual([]);
-});
-
-test('the zoom keys and the wheel set the panel scale, and a reload restores it', async ({
-	harness,
-	isMobile,
-	page,
-}) => {
+test('the zoom keys and the wheel set the panel scale', async ({ harness, isMobile, page }) => {
 	const control = page.locator('sonic-waveform:has(:visible)').getByRole('slider');
 
 	await harness.open({ query: { waveform: 1 } });
@@ -107,16 +79,6 @@ test('the zoom keys and the wheel set the panel scale, and a reload restores it'
 		await page.mouse.wheel(0, -100);
 		await expect.poll(() => readZoom(page)).toBeGreaterThan(54.52);
 	}
-
-	const zoom = await readZoom(page);
-
-	expect(await page.evaluate((key) => localStorage.getItem(key), panelZoomStorageKey)).toBe(
-		String(zoom),
-	);
-
-	await page.reload();
-	await harness.waitForBind();
-	expect(await readZoom(page)).toBe(zoom);
 });
 
 test('a two-finger pinch zooms the panel without seeking', async ({

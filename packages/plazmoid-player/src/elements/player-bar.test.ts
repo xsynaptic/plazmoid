@@ -52,7 +52,7 @@ describe('<pzm-bar>', () => {
 		const { part, root } = mount('pzm-bar');
 
 		root.remove();
-		// The disconnect settles on a microtask; a same-task reconnect never reaches the bar
+		// Lets the disconnect settle, so the bar is torn down and connects afresh
 		await Promise.resolve();
 		document.body.append(root);
 

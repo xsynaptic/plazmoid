@@ -66,6 +66,22 @@ describe('<pzm-panel>', () => {
 		expect(mounted.part.childElementCount).toBe(0);
 	});
 
+	test('keeps its waveform and its bindings across a same-task reconnect', async () => {
+		const mounted = mountPanel();
+		const waveform = await openPanel(mounted);
+		const target = document.createElement('div');
+
+		document.documentElement.append(mounted.root);
+		document.body.append(target);
+		target.replaceWith(mounted.root);
+		await Promise.resolve();
+
+		expect(mounted.part.querySelector('sonic-waveform')).toBe(waveform);
+
+		mounted.fake.callbacks.current?.onTime(40);
+		expect(waveform.value).toBe(40);
+	});
+
 	test('draws the next track from its own peaks, and keeps the one it has through a zoom', async () => {
 		const { urls } = stubWavedataFetch(offline);
 		const mounted = mountPanel();

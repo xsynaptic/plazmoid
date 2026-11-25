@@ -38,7 +38,6 @@ interface Harness {
 
 interface LoggedRequest {
 	path: string;
-	range: string | undefined;
 	status: number;
 }
 

@@ -49,7 +49,6 @@ const parameters = new URLSearchParams(location.search);
 
 const settings = {
 	bindDelay: Number(parameters.get('bindDelay') ?? 0),
-	detail: readChoice('detail', ['answer', 'hang']),
 	hasFallback: parameters.has('fallback'),
 	hasWaveform: parameters.has('waveform'),
 	isCued: parameters.has('cued'),
@@ -57,7 +56,6 @@ const settings = {
 	run: parameters.get('run') ?? 'manual',
 	stream: readChoice('stream', ['audio', 'missing', 'garbage', 'hang', 'flaky', 'stalled']),
 	type: readChoice('type', ['capital', 'lowercase']),
-	waveformVersion: readNumber('waveformVersion'),
 };
 
 const waveformFacts =
@@ -65,12 +63,8 @@ const waveformFacts =
 
 let resolveCount = 0;
 
-const unanswered = new Promise<undefined>(() => {
-	// Never settles, as a host's detail fetch still in flight
-});
-
 const urls: PlayerUrls = {
-	detail: (track) => (settings.detail === 'hang' ? unanswered : Promise.resolve(detailOf(track))),
+	detail: (track) => Promise.resolve(detailOf(track)),
 	// Counted, so a spec can tell a re-resolve from a first load
 	stream: ({ sources = [] }) => {
 		resolveCount += 1;
@@ -91,7 +85,6 @@ function waveformOf(trackId: string): TrackDetail['waveform'] {
 
 	return {
 		...waveformFacts,
-		formatVersion: settings.waveformVersion ?? waveformFacts.formatVersion,
 		url: wavedataUrl(trackId),
 	};
 }
@@ -106,12 +99,6 @@ function wavedataUrl(trackId: string): string {
 
 function isFixture(row: string): row is keyof typeof fixtures {
 	return Object.hasOwn(fixtures, row);
-}
-
-function readNumber(name: string): number | undefined {
-	const value = parameters.get(name);
-
-	return value === null ? undefined : Number(value);
 }
 
 function readChoice<Choice extends string>(

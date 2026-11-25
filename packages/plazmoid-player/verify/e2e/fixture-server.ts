@@ -11,7 +11,6 @@ import { writeFixtureWavedata } from '#e2e/fixture-wavedata.ts';
 
 interface LoggedRequest {
 	path: string;
-	range: string | undefined;
 	status: number;
 }
 
@@ -166,7 +165,7 @@ const server = createServer((request, response) => {
 	void respond(request, response, url).then((status = 0) => {
 		if (run === null || url.pathname === '/log') return;
 
-		logRequest(run, { path: url.pathname, range: request.headers.range, status });
+		logRequest(run, { path: url.pathname, status });
 	});
 });
 

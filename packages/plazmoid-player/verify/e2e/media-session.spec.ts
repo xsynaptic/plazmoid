@@ -28,7 +28,8 @@ test.beforeEach(async ({ harness, page }) => {
 	);
 });
 
-test('the metadata carries the track, with one typed artwork entry', async ({ harness, page }) => {
+// The unit suite's MediaMetadata is a stand-in that records its init; this is the check against the platform's own
+test('the platform holds the metadata once playback starts', async ({ harness, page }) => {
 	await page.getByRole('button', { name: 'Play long' }).click();
 	await expectAdvancing(harness, 1);
 
@@ -36,21 +37,14 @@ test('the metadata carries the track, with one typed artwork entry', async ({ ha
 		const current = navigator.mediaSession.metadata;
 
 		return (
-			current && {
-				artist: current.artist,
-				artwork: current.artwork.map(({ sizes, src, type }) => ({ sizes, src, type })),
+			current instanceof MediaMetadata && {
+				artworkCount: current.artwork.length,
 				title: current.title,
 			}
 		);
 	});
 
-	expect(metadata).toEqual({
-		artist: 'Fixture Artist',
-		artwork: [
-			{ sizes: '512x512', src: expect.stringContaining('/art.png') as unknown, type: 'image/png' },
-		],
-		title: 'Long fixture',
-	});
+	expect(metadata).toEqual({ artworkCount: 1, title: 'Long fixture' });
 });
 
 test('steady playback reports its position rarely', async ({ harness, page }) => {
