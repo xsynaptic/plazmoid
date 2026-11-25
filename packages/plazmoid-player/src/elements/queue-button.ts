@@ -1,6 +1,6 @@
 import type { SonicButton } from '@xsynaptic/sonic-ui';
 
-import type { ViewStore, ViewStoreApi } from '#view/view-store.ts';
+import type { ViewStore } from '#view/view-store.ts';
 
 import { playerContext } from '#elements/player-context.ts';
 import { PlayerElement } from '#elements/player-element.ts';
@@ -9,6 +9,7 @@ import { bindButton } from '#lib/bind-button.ts';
 import { bindPreload } from '#lib/bind-preload.ts';
 import { bindDismiss } from '#lib/dismiss.ts';
 import { cloneIcon } from '#lib/icons.ts';
+import { openModule } from '#lib/lazy-module.ts';
 import { requireChild, template } from '#lib/render.ts';
 import { renderSonicButton } from '#lib/sonic-button.ts';
 import { supersede } from '#lib/supersede.ts';
@@ -16,12 +17,6 @@ import { supersede } from '#lib/supersede.ts';
 interface QueueParts {
 	control: HTMLDivElement;
 	trigger: SonicButton;
-}
-
-interface TrayOpening {
-	control: HTMLElement;
-	title: string;
-	view: ViewStoreApi;
 }
 
 const renderControl = template('<div class="pzm-queue"></div>', HTMLDivElement);
@@ -67,7 +62,17 @@ export class PlayerQueueButton extends PlayerElement {
 					opened.cancel();
 					if (!isOpen) return;
 
-					void openTray({ control, title: labels.queue, view }, opened.next());
+					const traySignal = opened.next();
+
+					void openModule(trayModule, {
+						onFailure: () => {
+							view.getState().setTrayOpen(false);
+						},
+						onOpen: () => {
+							showTray(control, labels.queue, traySignal);
+						},
+						signal: traySignal,
+					});
 				},
 				button: trigger,
 				press: (state) => {
@@ -85,17 +90,7 @@ function isTrayOpen(state: ViewStore): boolean {
 	return state.isTrayOpen;
 }
 
-async function openTray({ control, title, view }: TrayOpening, signal: AbortSignal): Promise<void> {
-	try {
-		await trayModule.load();
-	} catch (error) {
-		view.getState().setTrayOpen(false);
-		reportError(error);
-		return;
-	}
-
-	if (signal.aborted) return;
-
+function showTray(control: HTMLElement, title: string, signal: AbortSignal): void {
 	const popover = renderPopover();
 
 	requireChild(popover, '.pzm-header-title', HTMLElement).textContent = title;

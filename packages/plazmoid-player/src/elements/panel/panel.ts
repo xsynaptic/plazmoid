@@ -1,11 +1,11 @@
 import { bind } from '@xsynaptic/plazmoid-core';
 
-import type { PlayerContext } from '#elements/player-context.ts';
 import type { ViewStore } from '#view/view-store.ts';
 
 import { panelSurfaceModule } from '#elements/panel/panel-module.ts';
 import { playerContext } from '#elements/player-context.ts';
 import { PlayerElement } from '#elements/player-element.ts';
+import { openModule } from '#lib/lazy-module.ts';
 import { template } from '#lib/render.ts';
 import { supersede } from '#lib/supersede.ts';
 
@@ -31,9 +31,18 @@ export class PlayerPanel extends PlayerElement {
 				if (!isOpen) return;
 
 				const panel = renderPanel();
+				const panelSignal = opened.next();
 
 				this.append(panel);
-				void openSurface(panel, context, opened.next());
+				void openModule(panelSurfaceModule, {
+					onFailure: () => {
+						context.view.getState().setPanelOpen(false);
+					},
+					onOpen: (connectPanelSurface) => {
+						connectPanelSurface(panel, context, panelSignal);
+					},
+					signal: panelSignal,
+				});
 			},
 			signal,
 		);
@@ -46,19 +55,4 @@ function isPanelOpen(view: ViewStore): boolean {
 
 function isShownInBar(view: ViewStore): boolean {
 	return view.isPanelOpen && !view.isOverlayOpen;
-}
-
-async function openSurface(
-	panel: HTMLElement,
-	context: PlayerContext,
-	signal: AbortSignal,
-): Promise<void> {
-	try {
-		const connectPanelSurface = await panelSurfaceModule.load();
-
-		if (!signal.aborted) connectPanelSurface(panel, context, signal);
-	} catch (error) {
-		context.view.getState().setPanelOpen(false);
-		reportError(error);
-	}
 }

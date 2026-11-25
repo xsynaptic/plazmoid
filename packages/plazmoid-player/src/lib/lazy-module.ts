@@ -50,6 +50,26 @@ export function lazyModule<Module>(
 	};
 }
 
+interface Opening<Module> {
+	onFailure?: () => void;
+	onOpen: (module: Module) => void;
+	signal: AbortSignal;
+}
+
+export async function openModule<Module>(
+	module: Pick<LazyModule<Module>, 'load'>,
+	{ onFailure, onOpen, signal }: Opening<Module>,
+): Promise<void> {
+	try {
+		const loaded = await module.load();
+
+		if (!signal.aborted) onOpen(loaded);
+	} catch (error) {
+		onFailure?.();
+		reportError(error);
+	}
+}
+
 async function settle(pending: Promise<unknown>): Promise<void> {
 	try {
 		await pending;

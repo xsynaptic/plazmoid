@@ -7,6 +7,7 @@ import { bindPlayer } from '#elements/bind-player.ts';
 import { playerContext } from '#elements/player-context.ts';
 import { PlayerElement } from '#elements/player-element.ts';
 import { scopeSurfaceModule } from '#elements/scope/scope-module.ts';
+import { openModule } from '#lib/lazy-module.ts';
 import { observeResize } from '#lib/observe-resize.ts';
 import { requireChild, template } from '#lib/render.ts';
 
@@ -27,18 +28,12 @@ export class PlayerScope extends PlayerElement {
 		const box = requireChild(screen, '.pzm-scope-trace', HTMLDivElement);
 		const toggle = requireChild(screen, 'button', HTMLButtonElement);
 		let isTracing = isPlayingInBar(store.getState(), view.getState());
+		let opening: Promise<void> | undefined;
 		let surface: ScopeSurface | undefined;
 
-		const open = async (): Promise<void> => {
-			try {
-				const connectScopeSurface = await scopeSurfaceModule.load();
-				if (surface || signal.aborted) return;
-
-				surface = connectScopeSurface(box, store, signal);
-				retrace();
-			} catch (error) {
-				reportError(error);
-			}
+		const setOn = (isOn: boolean): void => {
+			this.#isOn = isOn;
+			toggle.setAttribute('aria-pressed', String(isOn));
 		};
 
 		const retrace = (): void => {
@@ -51,9 +46,19 @@ export class PlayerScope extends PlayerElement {
 			}
 
 			// A scope with no width is hidden by a container query, where the chunk would load for nothing
-			if (!shouldTrace || box.clientWidth === 0) return;
+			if (!shouldTrace || opening !== undefined || box.clientWidth === 0) return;
 
-			void open();
+			opening = openModule(scopeSurfaceModule, {
+				onFailure: () => {
+					opening = undefined;
+					setOn(false);
+				},
+				onOpen: (connectScopeSurface) => {
+					surface = connectScopeSurface(box, store, signal);
+					retrace();
+				},
+				signal,
+			});
 		};
 
 		toggle.setAttribute('aria-label', labels.scope);
@@ -61,9 +66,8 @@ export class PlayerScope extends PlayerElement {
 		toggle.addEventListener(
 			'click',
 			() => {
-				this.#isOn = !this.#isOn;
-				toggle.setAttribute('aria-pressed', String(this.#isOn));
-				if (this.#isOn) retrace();
+				setOn(!this.#isOn);
+				if (this.#isOn || box.getAnimations().length === 0) retrace();
 			},
 			{ signal },
 		);
