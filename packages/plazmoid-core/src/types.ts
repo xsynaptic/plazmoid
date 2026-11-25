@@ -26,7 +26,8 @@ export type PlayerStatus =
 export interface PlayerUrls {
 	// `undefined` settles on a plain groove and the panel's grid; a rejection draws the same and is asked again
 	detail?: ((track: Track) => Promise<TrackDetail | undefined>) | undefined;
-	stream: (track: Track) => Promise<StreamResolution>;
+	// For a URL worked out per play; absent plays the track's own `sources`
+	stream?: (track: Track) => Promise<StreamResolution>;
 }
 
 // One square rendition; `width` is its size in pixels
@@ -57,6 +58,8 @@ export interface Track {
 	// Absent renders the title as plain text
 	releaseHref?: string;
 	releaseTitle: string;
+	// In order of preference
+	sources?: ReadonlyArray<StreamSource>;
 	title: string;
 	trackId: string;
 }

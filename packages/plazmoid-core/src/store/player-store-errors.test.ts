@@ -5,12 +5,19 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { PlayerStore } from '#store/player-store.ts';
 import type { StreamResolution } from '#types.ts';
 
-import { configured, fake, release, resetEngine, withResolver } from '#test/player-store.ts';
+import {
+	configured,
+	fake,
+	makeTrack,
+	release,
+	resetEngine,
+	withResolver,
+} from '#test/player-store.ts';
 
 const mediaSnapshot = { networkState: 2, positionSeconds: 0, readyState: 0 };
 
 async function failIntoRetry(store: StoreApi<PlayerStore>): Promise<void> {
-	store.getState().playTrack(release, 'a');
+	store.getState().playQueue(release, 'a');
 	await vi.waitFor(() => {
 		expect(fake.engine.load).toHaveBeenCalledTimes(1);
 	});
@@ -34,7 +41,7 @@ describe('engine errors', () => {
 			});
 		});
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -61,7 +68,7 @@ describe('engine errors', () => {
 			});
 		});
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -89,7 +96,7 @@ describe('engine errors', () => {
 			return Promise.resolve({ status: 'capped' });
 		});
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(store.getState().status).toBe('capped');
 		});
@@ -109,7 +116,7 @@ describe('engine errors', () => {
 		);
 		fake.engine.canPlay.mockReturnValue(false);
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -130,7 +137,7 @@ describe('engine errors', () => {
 		});
 		fake.engine.canPlay.mockReturnValue(false);
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -151,7 +158,7 @@ describe('engine errors', () => {
 			}),
 		);
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -177,7 +184,7 @@ describe('engine errors', () => {
 		});
 		fake.engine.canPlay.mockReturnValueOnce(false);
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -198,7 +205,7 @@ describe('engine errors', () => {
 	test('ends an empty source list as an error at the resolve stage, without loading', async () => {
 		const store = withResolver(() => Promise.resolve({ sources: [], status: 'ok' }));
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(store.getState().status).toBe('error');
 		});
@@ -216,8 +223,8 @@ describe('engine errors', () => {
 				}),
 		);
 
-		store.getState().playTrack(release, 'a');
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'a');
+		store.getState().playTrack(makeTrack('b'));
 
 		// The abandoned track answers last, the order that would otherwise pull the queue back
 		pending.get('b')?.({ sources: [{ url: 'https://api.test/b' }], status: 'ok' });
@@ -235,7 +242,7 @@ describe('engine errors', () => {
 	test('reloads a failed track where it stood when play is pressed again', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -261,7 +268,7 @@ describe('engine errors', () => {
 	test('enters the error state when the resolve itself never answers', async () => {
 		const store = withResolver(() => Promise.reject(new Error('no route')));
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(store.getState().status).toBe('error');
 		});
@@ -274,7 +281,7 @@ describe('diagnostics', () => {
 	test('stamps each report with the loaded track and whether its attempt is the re-resolve', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		fake.callbacks.current?.onDiagnostic?.({
 			...mediaSnapshot,
 			kind: 'media-error',

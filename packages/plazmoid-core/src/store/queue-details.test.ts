@@ -70,7 +70,7 @@ describe('queued detail', () => {
 
 		expect(isDetailPending(store.getState())).toBe(false);
 
-		store.getState().playTrack([makeTrack('a')], 'a');
+		store.getState().playQueue([makeTrack('a')], 'a');
 		await settle();
 
 		expect(isDetailPending(store.getState())).toBe(true);
@@ -88,7 +88,7 @@ describe('queued detail', () => {
 	])('stops waiting when the host %s', async (_outcome, detail) => {
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a')], 'a');
+		store.getState().playQueue([makeTrack('a')], 'a');
 		await settle();
 
 		expect(isDetailPending(store.getState())).toBe(false);
@@ -98,7 +98,7 @@ describe('queued detail', () => {
 	test('never waits on a host that resolves no detail', () => {
 		const store = createStore(undefined);
 
-		store.getState().playTrack([makeTrack('a')], 'a');
+		store.getState().playQueue([makeTrack('a')], 'a');
 
 		expect(isDetailPending(store.getState())).toBe(false);
 	});
@@ -107,7 +107,7 @@ describe('queued detail', () => {
 		const detail = vi.fn(() => Promise.resolve(strip));
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a'), makeTrack('b')], 'a');
+		store.getState().playQueue([makeTrack('a'), makeTrack('b')], 'a');
 		await settle();
 		store.getState().moveTrack(0, 1);
 
@@ -117,7 +117,7 @@ describe('queued detail', () => {
 
 		expect([...store.getState().details.keys()]).toStrictEqual(['a']);
 
-		store.getState().queueTrack([makeTrack('b')], 'b');
+		store.getState().queueTracks([makeTrack('b')]);
 		await settle();
 
 		expect(detail).toHaveBeenCalledTimes(3);
@@ -133,7 +133,7 @@ describe('detail retry', () => {
 			.mockResolvedValue(strip);
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a')], 'a');
+		store.getState().playQueue([makeTrack('a')], 'a');
 		await settle();
 
 		expect(store.getState().details.get('a')).toStrictEqual({});
@@ -153,7 +153,7 @@ describe('detail retry', () => {
 		const detail = vi.fn(() => (isOnline ? Promise.resolve(strip) : offline()));
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a')], 'a');
+		store.getState().playQueue([makeTrack('a')], 'a');
 		await settle();
 
 		for (const delayMs of [2000, 4000, 8000, 16_000, 30_000, 30_000]) {
@@ -174,7 +174,7 @@ describe('detail retry', () => {
 		expect(store.getState().details.get('a')).toBe(strip);
 
 		isOnline = false;
-		store.getState().queueTrack([makeTrack('b')], 'b');
+		store.getState().queueTracks([makeTrack('b')]);
 		await settle();
 
 		const asked = detail.mock.calls.length;
@@ -188,7 +188,7 @@ describe('detail retry', () => {
 		const detail = vi.fn<NonNullable<PlayerUrls['detail']>>(offline);
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a'), makeTrack('b')], 'a');
+		store.getState().playQueue([makeTrack('a'), makeTrack('b')], 'a');
 		await settle();
 		await vi.advanceTimersByTimeAsync(2000);
 		await vi.advanceTimersByTimeAsync(3999);
@@ -200,7 +200,7 @@ describe('detail retry', () => {
 		const detail = vi.fn(() => Promise.resolve(undefined));
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a')], 'a');
+		store.getState().playQueue([makeTrack('a')], 'a');
 		await vi.advanceTimersByTimeAsync(60_000);
 
 		expect(detail).toHaveBeenCalledOnce();
@@ -210,7 +210,7 @@ describe('detail retry', () => {
 		const detail = vi.fn<NonNullable<PlayerUrls['detail']>>(offline);
 		const store = createStore(detail);
 
-		store.getState().playTrack([makeTrack('a'), makeTrack('b')], 'a');
+		store.getState().playQueue([makeTrack('a'), makeTrack('b')], 'a');
 		await settle();
 		store.getState().removeAt(1);
 		await vi.advanceTimersByTimeAsync(2000);
@@ -253,7 +253,7 @@ describe('detail persistence', () => {
 			isPersistent: true,
 		});
 
-		store.getState().playTrack([makeTrack('a'), makeTrack('bb')], 'a');
+		store.getState().playQueue([makeTrack('a'), makeTrack('bb')], 'a');
 		await settle();
 
 		expect(JSON.parse(localStorage.getItem(queueDetailStorageKey) ?? '{}')).toStrictEqual({

@@ -4,10 +4,11 @@ import { loadedTrack } from '@xsynaptic/plazmoid-core';
 import { heldPressAttribute } from '@xsynaptic/plazmoid-core/constants';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import type { AstroPlayer, AstroPlayerConfig } from '#astro.ts';
+import type { AstroPlayer, AstroPlayerConfig, AstroPlayerHooks } from '#astro.ts';
 
 import { startAstroPlayer } from '#astro.ts';
 import { defaultLabels } from '#labels.ts';
+import { LazyModuleError } from '#lib/lazy-module.ts';
 
 // Inline, so happy-dom has nothing to fetch
 const stylesheet = 'data:text/css,';
@@ -34,12 +35,12 @@ function control(selector: string): HTMLElement {
 	return found;
 }
 
-function mountPage({ hasPayload }: { hasPayload: boolean }): void {
+function mountPage({ hasPayload, host = '' }: { hasPayload: boolean; host?: string }): void {
 	document.body.innerHTML = `
 		${hasPayload ? `<div data-pzm-payload='${payload}' hidden></div>` : ''}
 		<button data-pzm-play-track="a"><span>Play a</span></button>
 		<button data-pzm-queue-track="b">Queue b</button>
-		<div data-pzm-host></div>
+		<div data-pzm-host>${host}</div>
 	`;
 }
 
@@ -69,6 +70,7 @@ function startReady(hooks: Omit<AstroPlayerConfig, 'player' | 'stylesheetUrl' | 
 	const ready = Promise.withResolvers<AstroPlayer>();
 
 	start({
+		...hooks,
 		load: async () => {
 			const loaded = (await hooks.load?.()) ?? {};
 
@@ -154,7 +156,7 @@ describe('startAstroPlayer', () => {
 		await vi.waitFor(() => {
 			expect(document.querySelectorAll('[data-pzm-host] > pzm-root')).toHaveLength(1);
 		});
-		expect(configure).toHaveBeenCalledExactlyOnceWith(control('[data-pzm-host]'));
+		expect(configure).toHaveBeenCalledExactlyOnceWith(control('[data-pzm-host]'), undefined);
 	});
 
 	test('a press once the page controls are bound is theirs, and so is one from onReady', async () => {
@@ -210,6 +212,109 @@ describe('startAstroPlayer', () => {
 		await ready.promise;
 
 		expect(steps).toStrictEqual(['load', 'urls', 'ready']);
+	});
+
+	test('the seek seconds reach the store before the bar connects and reads them', async () => {
+		stubIdle({ isIdle: true });
+		mountPage({ hasPayload: true });
+
+		const { root } = await startReady({ seekSeconds: 15 });
+
+		expect(root.querySelector('pzm-seek-button')?.getAttribute('seconds')).toBe('-15');
+	});
+
+	test('playback failures, opened parts and failed chunks all reach onEvent', async () => {
+		const events: Array<Parameters<NonNullable<AstroPlayerHooks['onEvent']>>[0]> = [];
+
+		stubIdle({ isIdle: true });
+		mountPage({ hasPayload: true });
+
+		const { store, view } = await startReady({
+			load: () =>
+				Promise.resolve({
+					onEvent: (event) => {
+						events.push(event);
+					},
+				}),
+		});
+
+		store.getState().configure({ urls: { stream: () => Promise.resolve({ status: 'capped' }) } });
+		control('[data-pzm-play-track]').click();
+		view.getState().setOverlayOpen(true);
+		view.getState().setPanelOpen(true);
+		window.dispatchEvent(new ErrorEvent('error', { error: new Error('Not a chunk') }));
+		window.dispatchEvent(
+			new ErrorEvent('error', { error: new LazyModuleError('tray', 'offline') }),
+		);
+
+		await vi.waitFor(() => {
+			expect(events).toContainEqual({
+				error: undefined,
+				kind: 'failed',
+				status: 'capped',
+				trackId: 'a',
+			});
+		});
+		expect(events.filter((event) => event.kind !== 'failed')).toStrictEqual([
+			{ kind: 'opened', part: 'overlay' },
+			{ kind: 'opened', part: 'panel' },
+			{ chunk: 'tray', kind: 'chunk-failed', reason: 'offline' },
+		]);
+	});
+
+	test('an onEvent that throws is reported, and the next event still reaches it', async () => {
+		const failure = new Error('Analytics failed');
+		const reportError = vi.fn();
+		const onEvent = vi.fn(() => {
+			throw failure;
+		});
+
+		vi.stubGlobal('reportError', reportError);
+		stubIdle({ isIdle: true });
+		mountPage({ hasPayload: true });
+
+		const { view } = await startReady({ load: () => Promise.resolve({ onEvent }) });
+
+		view.getState().setOverlayOpen(true);
+		view.getState().setPanelOpen(true);
+
+		expect(onEvent).toHaveBeenCalledTimes(2);
+		expect(reportError).toHaveBeenCalledTimes(2);
+		expect(reportError).toHaveBeenCalledWith(failure);
+		expect(view.getState().isPanelOpen).toBe(true);
+	});
+
+	test("hands configure the host's JSON script, parsed", async () => {
+		stubIdle({ isIdle: true });
+		mountPage({
+			hasPayload: true,
+			host: '<script type="application/json">{"libraryUrl":"/library.json"}</script>',
+		});
+
+		const configure = start();
+
+		await vi.waitFor(() => {
+			expect(configure).toHaveBeenCalledExactlyOnceWith(control('[data-pzm-host]'), {
+				libraryUrl: '/library.json',
+			});
+		});
+	});
+
+	test('a script that fails to parse is reported once, and the host is not started', async () => {
+		const reportError = vi.fn();
+
+		vi.stubGlobal('reportError', reportError);
+		stubIdle({ isIdle: true });
+		mountPage({ hasPayload: true, host: '<script type="application/json">{"labels":</script>' });
+
+		const configure = start();
+
+		document.dispatchEvent(new Event('astro:page-load'));
+		await settle();
+
+		expect(reportError).toHaveBeenCalledExactlyOnceWith(expect.any(SyntaxError));
+		expect(configure).not.toHaveBeenCalled();
+		expect(document.querySelector('pzm-root')).toBeNull();
 	});
 
 	test('a load that rejects is reported, and the player still mounts and binds', async () => {

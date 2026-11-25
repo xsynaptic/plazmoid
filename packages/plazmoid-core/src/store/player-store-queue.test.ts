@@ -14,16 +14,14 @@ import {
 beforeEach(resetEngine);
 
 describe('playTrack', () => {
-	test('loads the whole release and starts at the clicked track when the queue is empty', async () => {
+	test('jumps to a queued track by its id rather than queueing it twice', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().loadQueue(release);
+		store.getState().playTrack(makeTrack('b'));
 
-		const state = store.getState();
-
-		expect(state.queue).toHaveLength(3);
-		expect(state.currentIndex).toBe(1);
-
+		expect(store.getState().queue).toHaveLength(3);
+		expect(store.getState().currentIndex).toBe(1);
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledWith({
 				resumeAtSeconds: 0,
@@ -32,15 +30,44 @@ describe('playTrack', () => {
 		});
 	});
 
-	test('toggles transport when the clicked track is already loaded', async () => {
+	test('appends a track not yet queued and plays it, onto the end of a shuffled order', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().loadQueue(release);
+		store.getState().toggleShuffle();
+
+		const { playOrder } = store.getState();
+
+		store.getState().playTrack(makeTrack('x'));
+
+		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual([
+			'a',
+			'b',
+			'c',
+			'x',
+		]);
+		expect(store.getState().playOrder).toStrictEqual([...playOrder, 3]);
+		expect(store.getState().currentIndex).toBe(3);
+	});
+
+	test('onto an empty queue, plays only that track', () => {
+		const store = configured();
+
+		store.getState().playTrack(makeTrack('b'));
+
+		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['b']);
+		expect(store.getState().currentIndex).toBe(0);
+	});
+
+	test('toggles transport when the track is already loaded', async () => {
+		const store = configured();
+
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledOnce();
 		});
 		fake.callbacks.current?.onStatus('playing');
-		store.getState().playTrack(release, 'a');
+		store.getState().playTrack(makeTrack('a'));
 
 		expect(store.getState()).toMatchObject({ currentIndex: 0, isPaused: true });
 		expect(store.getState().queue).toHaveLength(3);
@@ -56,7 +83,7 @@ describe('playQueue', () => {
 	test('replaces a running queue and plays the new one from the top', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		store.getState().playQueue([makeTrack('x'), makeTrack('y')]);
 
 		const state = store.getState();
@@ -78,7 +105,7 @@ describe('playQueue', () => {
 	test('leaves the running queue alone when the chosen track is not among the new ones', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		store.getState().playQueue([makeTrack('x')], 'c');
 
 		expect(store.getState().queue).toHaveLength(3);
@@ -88,37 +115,11 @@ describe('playQueue', () => {
 	test('ignores an empty list rather than clearing what is loaded', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		store.getState().playQueue([]);
 
 		expect(store.getState().queue).toHaveLength(3);
 		expect(store.getState().currentIndex).toBe(1);
-	});
-});
-
-describe('queueTrack', () => {
-	test('appends the clicked track without loading or playing it', () => {
-		const store = configured();
-
-		store.getState().loadQueue([makeTrack('x')]);
-		store.getState().queueTrack(release, 'c');
-
-		const state = store.getState();
-
-		expect(state.queue).toHaveLength(2);
-		expect(state.queue[1]?.trackId).toBe('c');
-		expect(state.currentIndex).toBeUndefined();
-		expect(state.status).toBe('idle');
-		expect(fake.engine.load).not.toHaveBeenCalled();
-	});
-
-	test('onto an empty queue, appends only the clicked track', () => {
-		const store = configured();
-
-		store.getState().queueTrack(release, 'b');
-
-		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['b']);
-		expect(store.getState().currentIndex).toBeUndefined();
 	});
 });
 
@@ -153,7 +154,7 @@ describe('queue editing', () => {
 	test('stops playback when the loaded track is removed', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		store.getState().removeAt(1);
 
 		const state = store.getState();
@@ -167,7 +168,7 @@ describe('queue editing', () => {
 	test('replacing the queue while playing unloads the engine and leaves it idle', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		fake.callbacks.current?.onStatus('playing');
 		store.getState().loadQueue([makeTrack('x')]);
 
@@ -194,7 +195,7 @@ describe('queue editing', () => {
 		const { promise, resolve } = Promise.withResolvers<StreamResolution>();
 		const store = withResolver(() => promise);
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().removeAt(0);
 		resolve({ sources: [{ url: 'https://api.test/tracks/a/stream' }], status: 'ok' });
 		await Promise.resolve();

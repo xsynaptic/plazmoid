@@ -46,14 +46,17 @@ async function holdStream(page: Page): Promise<void> {
 }
 
 async function answerWithStream(page: Page): Promise<void> {
-	await page.evaluate(() => {
+	const url = await page.evaluate(() => {
 		const state = window.playerPage?.store.getState();
 		const track = state?.currentIndex === undefined ? undefined : state.queue[state.currentIndex];
-		const url: unknown = track && Reflect.get(track, 'streamUrl');
-		if (typeof url !== 'string') throw new TypeError('Nothing loaded');
 
-		window.heldStream?.answer?.({ sources: [{ url }], status: 'ok' });
+		return track?.sources?.at(-1)?.url;
 	});
+	if (url === undefined) throw new TypeError('Nothing loaded');
+
+	await page.evaluate((streamUrl) => {
+		window.heldStream?.answer?.({ sources: [{ url: streamUrl }], status: 'ok' });
+	}, url);
 }
 
 function readHeldCalls(page: Page): Promise<number | undefined> {

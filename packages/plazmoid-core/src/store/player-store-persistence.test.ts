@@ -33,7 +33,7 @@ describe('queue persistence', () => {
 	test('writes the queue as it changes, and clears it when the queue empties', () => {
 		const store = persisted();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 
 		expect(storedOrder()?.trackIds).toStrictEqual(['a', 'b', 'c']);
 		expect(storedOrder()?.currentIndex).toBe(1);
@@ -47,7 +47,7 @@ describe('queue persistence', () => {
 	test('an advance, a reorder and a shuffle write the order and leave the tracks alone', () => {
 		const store = persisted();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 
 		const setItem = vi.spyOn(localStorage, 'setItem');
 
@@ -89,7 +89,7 @@ describe('queue persistence', () => {
 		const store = persisted();
 
 		store.getState().loadQueue(release);
-		store.getState().queueTrack([makeTrack('d')], 'd');
+		store.getState().queueTracks([makeTrack('d')]);
 
 		expect(Object.keys(storedTracks())).toStrictEqual(['a', 'b', 'c', 'd']);
 
@@ -173,7 +173,7 @@ describe('queue persistence', () => {
 	test('loads a restored track at the stored position on the first press', async () => {
 		const first = persisted();
 
-		first.getState().playTrack(release, 'b');
+		first.getState().playQueue(release, 'b');
 		first.getState().seek(42);
 		leavePage();
 
@@ -196,7 +196,7 @@ describe('queue persistence', () => {
 	test('restarts a restored track past the threshold rather than stepping back', () => {
 		const first = persisted();
 
-		first.getState().playTrack(release, 'b');
+		first.getState().playQueue(release, 'b');
 		first.getState().seek(42);
 		leavePage();
 
@@ -222,7 +222,7 @@ describe('queue persistence', () => {
 
 		const second = persisted();
 
-		second.getState().playTrack([makeTrack('d')], 'd');
+		second.getState().playTrack(makeTrack('d'));
 
 		const ids = second.getState().queue.map((track) => track.queueId);
 
@@ -271,7 +271,7 @@ describe('queue persistence', () => {
 	test('flushes the position when the page goes hidden', () => {
 		const store = persisted();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		store.getState().seek(42);
 		hidePage();
 
@@ -328,6 +328,26 @@ describe('queue persistence', () => {
 
 		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['a', 'c']);
 		expect(store.getState()).toMatchObject({ currentIndex: 1, currentTimeSeconds: 42 });
+
+		localStorage.clear();
+	});
+
+	test('drops malformed sources and keeps the track', () => {
+		localStorage.setItem(
+			queueStorageKey,
+			JSON.stringify({ currentIndex: 0, currentTimeSeconds: 0, trackIds: ['a'] }),
+		);
+		localStorage.setItem(
+			queueTracksStorageKey,
+			JSON.stringify({
+				a: { ...makeTrack('a'), sources: [{ url: 'https://cdn.test/a' }, { url: 5 }] },
+			}),
+		);
+
+		const [restored] = persisted().getState().queue;
+
+		expect(restored?.trackId).toBe('a');
+		expect(restored).not.toHaveProperty('sources');
 
 		localStorage.clear();
 	});

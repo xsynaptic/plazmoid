@@ -13,17 +13,20 @@ import { defaultLabels } from '@xsynaptic/plazmoid-player/labels';
 
 import '@xsynaptic/plazmoid-player/player.css';
 
+const store = createPlayerStore();
+
+store.getState().configure({ seekSeconds: 15, urls });
+
 const root = createPlayer({
 	labels: { ...defaultLabels },
-	store: createPlayerStore(),
-	urls,
+	store,
 	view: createViewStore(),
 });
 
 document.body.append(root);
 ```
 
-`createPlayer` returns a `<pzm-root>` holding the bar. Its options are read once, when the bar is first added to the page. Core's README covers `urls`, play buttons on the page and loading the player late.
+`createPlayer` returns a `<pzm-root>` holding the bar, which reads its options and the store's `seekSeconds` once, when it is first added to the page. Core's README covers `urls`, play buttons on the page and loading the player late.
 
 `labels` is required, so a translated site doesn't ship the English strings. Spread `defaultLabels` and override what you need.
 
@@ -43,13 +46,14 @@ Render a persisted `data-pzm-host` element on every page and start the player fr
 
 	startAstroPlayer(() => ({
 		player: { labels: defaultLabels },
+		seekSeconds: 15,
 		stylesheetUrl,
 		urls: () => urls,
 	}));
 </script>
 ```
 
-`startAstroPlayer` calls your function once, on the first page with something to play, then loads the player on the first press or idle moment and replays any press made meanwhile. An optional `load()` runs beside the player's imports and resolves to `onPress` and `onReady` hooks; `urls` is called once it settles, and if it rejects the player starts without them.
+`startAstroPlayer` calls your function once, on the first page with something to play, then loads the player on the first press or idle moment and replays any press made meanwhile. A `<script type="application/json">` inside the host reaches your function parsed, as its second argument; escape `<` in it so no value can close the script. An optional `load()` resolves to `onPress`, `onReady` and `onEvent` hooks, and `urls` is called once it settles.
 
 ## Styling
 

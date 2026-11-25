@@ -5,14 +5,16 @@ import type { QueueState } from '#queue/queue-state.ts';
 import type { QueuedTrack, Track } from '#types.ts';
 
 import {
-	appendedQueue,
 	createQueueIds,
 	loadedQueue,
 	movedTrack,
+	playedTrack,
+	queuedTracks,
 	refreshedQueue,
 	removedAt,
 	shuffledQueue,
 	stampQueue,
+	startedQueue,
 } from '#queue/queue-state.ts';
 
 function makeTrack(trackId: string): Track {
@@ -65,6 +67,10 @@ function stamp(tracks: ReadonlyArray<Track>): Array<QueuedTrack> {
 	return stampQueue(tracks, nextId);
 }
 
+function stampOne(trackId: string): QueuedTrack {
+	return { ...makeTrack(trackId), queueId: nextId() };
+}
+
 function queueTrackIds(queue: ReadonlyArray<QueuedTrack>): Array<string> {
 	return queue.map((track) => track.trackId);
 }
@@ -85,61 +91,57 @@ describe('loadedQueue', () => {
 	});
 });
 
-describe('appendedQueue', () => {
-	test('fills an empty queue and loads its head when no track is named', () => {
-		const appended = appendedQueue(emptyState(), stamp(release));
+describe('startedQueue', () => {
+	test('loads the head when no track is named', () => {
+		const started = startedQueue(stamp(release), undefined, false);
 
-		expect(appended?.loadIndex).toBe(0);
-		expect(queueTrackIds(appended?.state.queue ?? [])).toStrictEqual(['a', 'b', 'c']);
+		expect(started?.loadIndex).toBe(0);
+		expect(started?.state.currentIndex).toBeUndefined();
+		expect(queueTrackIds(started?.state.queue ?? [])).toStrictEqual(['a', 'b', 'c']);
 	});
 
-	test('refuses a named track the release does not carry', () => {
-		expect(appendedQueue(emptyState(), stamp(release), 'z')).toBeUndefined();
+	test('refuses an empty list and a named track the list does not carry', () => {
+		expect(startedQueue([], undefined, false)).toBeUndefined();
+		expect(startedQueue(stamp(release), 'z', false)).toBeUndefined();
 	});
 
-	test('appends every track to a running queue and loads the first appended', () => {
-		const appended = appendedQueue(withQueue([makeTrack('x')], 0), stamp(release));
+	test('puts the named track first in a shuffled order', () => {
+		const started = startedQueue(stamp(release), 'c', true);
 
-		expect(appended?.loadIndex).toBe(1);
-		expect(queueTrackIds(appended?.state.queue ?? [])).toStrictEqual(['x', 'a', 'b', 'c']);
+		expect(started?.loadIndex).toBe(2);
+		expect(started?.state.playOrder[0]).toBe(2);
 	});
+});
 
+describe('playedTrack', () => {
 	test('jumps to a track already queued rather than appending a second copy', () => {
 		const running = withQueue(release, 0);
-		const appended = appendedQueue(running, stamp(release), 'c');
+		const played = playedTrack(running, stampOne('c'));
 
-		expect(appended?.loadIndex).toBe(2);
-		expect(appended?.state).toBe(running);
+		expect(played.loadIndex).toBe(2);
+		expect(played.state).toBe(running);
 	});
 
-	test('appends only the named track when a queue is running', () => {
-		const appended = appendedQueue(withQueue([makeTrack('x')], 0), stamp(release), 'c');
+	test('appends a track not yet queued, leaving the loaded index to the caller', () => {
+		const played = playedTrack(withQueue(release, 1), stampOne('d'));
 
-		expect(appended?.loadIndex).toBe(1);
-		expect(queueTrackIds(appended?.state.queue ?? [])).toStrictEqual(['x', 'c']);
+		expect(queueTrackIds(played.state.queue)).toStrictEqual(['a', 'b', 'c', 'd']);
+		expect(played.state.currentIndex).toBe(1);
+		expect(played.loadIndex).toBe(3);
 	});
 
-	test('leaves the loaded index alone, since loading it is the caller step', () => {
-		const appended = appendedQueue(withQueue(release, 1), stamp([makeTrack('d')]));
-
-		expect(appended?.state.currentIndex).toBe(1);
-		expect(appended?.loadIndex).toBe(3);
-	});
-
-	test('keeps a shuffled order and puts every appended track at its end', () => {
+	test('puts an appended track at the end of a shuffled order', () => {
 		const shuffling = { ...withQueue(release, 2), isShuffling: true, playOrder: [2, 0, 1] };
-		const appended = appendedQueue(shuffling, stamp([makeTrack('d'), makeTrack('e')]));
 
-		expect(appended?.loadIndex).toBe(3);
-		expect(appended?.state.playOrder).toStrictEqual([2, 0, 1, 3, 4]);
+		expect(playedTrack(shuffling, stampOne('e')).state.playOrder).toStrictEqual([2, 0, 1, 3]);
 	});
 
-	test('puts a named track at the end of a shuffled order', () => {
-		const shuffling = { ...withQueue(release, 2), isShuffling: true, playOrder: [2, 0, 1] };
-		const appended = appendedQueue(shuffling, stamp([makeTrack('d'), makeTrack('e')]), 'e');
+	test('onto an empty queue, queues only that track', () => {
+		const played = playedTrack(emptyState(), stampOne('b'));
 
-		expect(queueTrackIds(appended?.state.queue ?? [])).toStrictEqual(['a', 'b', 'c', 'e']);
-		expect(appended?.state.playOrder).toStrictEqual([2, 0, 1, 3]);
+		expect(played.loadIndex).toBe(0);
+		expect(queueTrackIds(played.state.queue)).toStrictEqual(['b']);
+		expect(played.state.playOrder).toStrictEqual([0]);
 	});
 });
 
@@ -267,7 +269,7 @@ describe('shuffledQueue', () => {
 interface QueueStep {
 	from: number;
 	isLoaded: boolean;
-	kind: 'clear' | 'jump' | 'load' | 'move' | 'queue' | 'remove' | 'shuffle';
+	kind: 'clear' | 'jump' | 'load' | 'move' | 'play' | 'queue' | 'remove' | 'shuffle' | 'start';
 	releaseSize: number;
 	to: number;
 	trackPick: number | undefined;
@@ -280,7 +282,17 @@ const queueSteps = fc.array(
 	fc.record({
 		from: fc.nat(),
 		isLoaded: fc.boolean(),
-		kind: fc.constantFrom('clear', 'jump', 'load', 'move', 'queue', 'remove', 'shuffle'),
+		kind: fc.constantFrom(
+			'clear',
+			'jump',
+			'load',
+			'move',
+			'play',
+			'queue',
+			'remove',
+			'shuffle',
+			'start',
+		),
 		releaseSize: fc.integer({ max: 4, min: 1 }),
 		to: fc.nat(),
 		trackPick: fc.option(fc.integer({ max: releaseIds.length, min: 0 }), { nil: undefined }),
@@ -290,7 +302,12 @@ const queueSteps = fc.array(
 
 const loadKeepingSteps: ReadonlySet<QueueStep['kind']> = new Set(['move', 'remove', 'shuffle']);
 
-const orderKeepingSteps: ReadonlySet<QueueStep['kind']> = new Set(['move', 'queue', 'remove']);
+const orderKeepingSteps: ReadonlySet<QueueStep['kind']> = new Set([
+	'move',
+	'play',
+	'queue',
+	'remove',
+]);
 
 function loadedQueueId(state: QueueState): string | undefined {
 	return state.currentIndex === undefined ? undefined : state.queue[state.currentIndex]?.queueId;
@@ -304,15 +321,19 @@ function stampedRelease(step: QueueStep): Array<QueuedTrack> {
 	return stamp(releaseIds.slice(0, step.releaseSize).map(makeTrack));
 }
 
-function queuedRelease(state: QueueState, step: QueueStep): QueueState {
-	const trackId =
-		step.trackPick === undefined ? undefined : (releaseIds[step.trackPick] ?? 'missing');
-	const appended = appendedQueue(state, stampedRelease(step), trackId);
+function pickedId(step: QueueStep): string | undefined {
+	return step.trackPick === undefined ? undefined : (releaseIds[step.trackPick] ?? 'missing');
+}
 
-	if (!appended) return state;
-	if (!step.isLoaded) return appended.state;
+function loadedAt(
+	played: undefined | { loadIndex: number; state: QueueState },
+	state: QueueState,
+	step: QueueStep,
+): QueueState {
+	if (!played) return state;
+	if (!step.isLoaded) return played.state;
 
-	return { ...appended.state, currentIndex: appended.loadIndex };
+	return { ...played.state, currentIndex: played.loadIndex };
 }
 
 const queueStepActions: Record<
@@ -330,10 +351,13 @@ const queueStepActions: Record<
 
 		return from === to ? state : movedTrack(state, from, to);
 	},
-	queue: queuedRelease,
+	play: (state, step) => loadedAt(playedTrack(state, stampOne(pickedId(step) ?? 'a')), state, step),
+	queue: (state, step) => queuedTracks(state, stampedRelease(step)) ?? state,
 	remove: (state, step) =>
 		state.queue.length === 0 ? state : removedAt(state, step.from % state.queue.length),
 	shuffle: (state) => shuffledQueue(state, !state.isShuffling),
+	start: (state, step) =>
+		loadedAt(startedQueue(stampedRelease(step), pickedId(step), state.isShuffling), state, step),
 };
 
 function queueIdChanges(before: QueueState, after: QueueState) {
@@ -351,7 +375,10 @@ function queueIdChanges(before: QueueState, after: QueueState) {
 }
 
 function expectLoadedTrackKept(before: QueueState, after: QueueState, step: QueueStep): void {
-	const isKeeping = loadKeepingSteps.has(step.kind) || (step.kind === 'queue' && !step.isLoaded);
+	const isKeeping =
+		loadKeepingSteps.has(step.kind) ||
+		step.kind === 'queue' ||
+		(step.kind === 'play' && !step.isLoaded);
 	if (!isKeeping) return;
 
 	const loadedBefore = loadedQueueId(before);

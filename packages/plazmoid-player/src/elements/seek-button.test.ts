@@ -13,7 +13,7 @@ describe('<pzm-seek-button>', () => {
 
 		expect(isDisabled()).toBe(true);
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 
 		expect(isDisabled()).toBe(false);
 

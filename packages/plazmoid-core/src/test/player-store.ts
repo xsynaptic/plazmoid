@@ -89,7 +89,7 @@ export function storeQueue(queue: ReadonlyArray<Track>, order: Partial<StoredOrd
 }
 
 export function withResolver(
-	stream: PlayerUrls['stream'],
+	stream: NonNullable<PlayerUrls['stream']>,
 	isPersistent = false,
 ): StoreApi<PlayerStore> {
 	const store = createWritablePlayerStore({

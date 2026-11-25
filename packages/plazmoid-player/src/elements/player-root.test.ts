@@ -26,7 +26,7 @@ describe('<pzm-root>', () => {
 		expect(root.dataset.empty).toBe('');
 		expect(root.dataset.paused).toBe('');
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 
 		expect(root.dataset.status).toBe('loading');
 		expect(root.dataset.empty).toBeUndefined();

@@ -90,6 +90,82 @@ describe('bindPageControls', () => {
 		expect(loadedTrack(page.store.getState())).toBeUndefined();
 	});
 
+	test('a track press on an empty queue takes the whole payload and starts at the pressed track', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b'), makeTrack('c')],
+			'<button data-pzm-play-track="b"></button>',
+		);
+
+		page.bind();
+		element('[data-pzm-play-track]').click();
+
+		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['a', 'b', 'c']);
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+	});
+
+	test('a track press on a running queue appends only the pressed track and plays it', () => {
+		const page = bindPage(
+			[makeTrack('a'), makeTrack('b'), makeTrack('c')],
+			'<button data-pzm-play-track="c"></button>',
+		);
+
+		page.bind();
+		page.store.getState().loadQueue([makeTrack('x')]);
+		element('[data-pzm-play-track]').click();
+
+		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['x', 'c']);
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('c');
+	});
+
+	test('a track press on a queued track the payload lacks plays the queued copy, then toggles it', () => {
+		const page = bindPage([makeTrack('a')], '<button data-pzm-play-track="b"></button>');
+
+		page.bind();
+		page.store.getState().loadQueue([makeTrack('a'), makeTrack('b')]);
+		element('[data-pzm-play-track]').click();
+
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+		expect(page.store.getState().isPaused).toBe(false);
+
+		element('[data-pzm-play-track]').click();
+
+		expect(page.store.getState().queue).toHaveLength(2);
+		expect(page.store.getState().isPaused).toBe(true);
+	});
+
+	test('a track press on an id neither the payload nor the queue holds changes nothing', () => {
+		const page = bindPage([makeTrack('a')], '<button data-pzm-play-track="z"></button>');
+
+		page.bind();
+		page.store.getState().loadQueue([makeTrack('a')]);
+
+		const { queue } = page.store.getState();
+
+		element('[data-pzm-play-track]').click();
+
+		expect(page.store.getState().queue).toBe(queue);
+		expect(loadedTrack(page.store.getState())).toBeUndefined();
+	});
+
+	test('a page with no payload still toggles the loaded group and jumps to a queued track', () => {
+		const page = bindPage(
+			[],
+			'<button data-pzm-play-tracks="a b"></button><button data-pzm-play-track="b"></button>',
+		);
+
+		document.querySelector('[data-pzm-payload]')?.remove();
+		page.bind();
+		page.store.getState().playQueue([makeTrack('a'), makeTrack('b')], 'a');
+		element('[data-pzm-play-tracks]').click();
+
+		expect(page.store.getState().isPaused).toBe(true);
+
+		element('[data-pzm-play-track]').click();
+
+		expect(loadedTrack(page.store.getState())?.trackId).toBe('b');
+		expect(page.store.getState().queue).toHaveLength(2);
+	});
+
 	test('queues a group without playing, leaving the tracks already queued where they are', () => {
 		const page = bindPage(
 			[makeTrack('a'), makeTrack('b'), makeTrack('c')],
@@ -97,7 +173,7 @@ describe('bindPageControls', () => {
 		);
 
 		page.bind();
-		page.store.getState().queueTrack([makeTrack('b')], 'b');
+		page.store.getState().queueTracks([makeTrack('b')]);
 		element('[data-pzm-queue-tracks]').click();
 
 		expect(page.store.getState().queue.map((track) => track.trackId)).toEqual(['b', 'a', 'c']);
@@ -284,7 +360,7 @@ describe('bindPageControls', () => {
 		);
 
 		page.bind();
-		page.store.getState().playTrack([makeTrack('a'), makeTrack('b')], 'b');
+		page.store.getState().playQueue([makeTrack('a'), makeTrack('b')], 'b');
 		page.store.getState().seek(120);
 		element('[data-pzm-play-tracks]').click();
 

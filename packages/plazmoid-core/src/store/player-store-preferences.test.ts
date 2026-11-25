@@ -19,7 +19,7 @@ describe('volume', () => {
 	test('mutes through the engine without touching the level it holds', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().setVolume(0.7);
 
 		store.getState().toggleMuted();

@@ -19,7 +19,7 @@ describe('next', () => {
 	test('stops at the end without wrapping', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'c');
+		store.getState().playQueue(release, 'c');
 		store.getState().next();
 
 		expect(store.getState().currentIndex).toBe(2);
@@ -31,7 +31,7 @@ describe('previous', () => {
 	test('restarts the current track when past the threshold', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		fake.setTime(5);
 		store.getState().previous();
 
@@ -42,7 +42,7 @@ describe('previous', () => {
 	test('writes the restart back to the store, since a paused clock gets no update', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		fake.setTime(5);
 		fake.callbacks.current?.onTime(5);
 		store.getState().previous();
@@ -53,7 +53,7 @@ describe('previous', () => {
 	test('restarts at the head of the queue', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		fake.setTime(1);
 		store.getState().previous();
 
@@ -67,7 +67,7 @@ describe('shuffle', () => {
 		const random = vi.spyOn(Math, 'random').mockReturnValue(0);
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().toggleShuffle();
 		expect(store.getState().playOrder).toStrictEqual([0, 2, 1]);
 
@@ -87,7 +87,7 @@ describe('transport', () => {
 	test('resumes rather than reloads after a row above the loaded track is removed', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playQueue(release, 'b');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledOnce();
 		});
@@ -103,7 +103,7 @@ describe('transport', () => {
 	test('resumes the engine when toggled while paused', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		fake.callbacks.current?.onStatus('paused');
 		store.getState().togglePaused();
 
@@ -113,7 +113,7 @@ describe('transport', () => {
 	test('starts the first play-order track when nothing is loaded', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().removeAt(0);
 		expect(store.getState().currentIndex).toBeUndefined();
 
@@ -125,7 +125,7 @@ describe('transport', () => {
 	test('seeks by a delta, clamped into the loaded track', () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		fake.callbacks.current?.onTime(100);
 		store.getState().seekBy(30);
 
@@ -145,7 +145,7 @@ describe('transport', () => {
 
 		const { durationMs: _durationMs, ...unmeasured } = makeTrack('a');
 
-		store.getState().playTrack([unmeasured], 'a');
+		store.getState().playQueue([unmeasured], 'a');
 		fake.callbacks.current?.onTime(10);
 		store.getState().seekBy(30);
 
@@ -169,7 +169,7 @@ describe('transport', () => {
 	])('%s stays idle when the element reports its pause late', (_label, drop) => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		fake.callbacks.current?.onStatus('playing');
 		drop(store);
 		fake.callbacks.current?.onStatus('paused');
@@ -182,7 +182,7 @@ describe('resume', () => {
 	test('a press on a load paused while it resolved reads as loading until the element answers', async () => {
 		const { answer, store } = pendingResolver();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().pause();
 		store.getState().play();
 
@@ -197,7 +197,7 @@ describe('resume', () => {
 	test('a press on a loaded pause leaves the status to the element', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledOnce();
 		});

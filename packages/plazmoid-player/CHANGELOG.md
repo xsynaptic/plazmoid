@@ -1,5 +1,17 @@
 # @xsynaptic/plazmoid-player
 
+## 0.4.0
+
+### Minor Changes
+
+- `createPlayer` no longer takes `urls` or `seekSeconds`; configure the store instead. `startAstroPlayer`'s function receives the host's JSON script and can return `seekSeconds`, and its hooks gain `onEvent`.
+
+### Patch Changes
+
+- If the scope fails to load, it now switches off and reports the error once instead of retrying on every resize; pressing it tries again. Turning the scope off also stops it straight away when the skin has no fade-out transition.
+- Updated dependencies
+  - @xsynaptic/plazmoid-core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

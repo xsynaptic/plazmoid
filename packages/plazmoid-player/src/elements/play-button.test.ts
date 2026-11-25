@@ -12,7 +12,7 @@ describe('<pzm-play-button>', () => {
 	test('follows intent and marks the cap alone while a load heads for playback', () => {
 		const { fake, part, store } = mount('pzm-play-button');
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 
 		const marked = () => [...part.querySelectorAll('[data-pzm-essential-motion]')];
 
@@ -36,7 +36,7 @@ describe('<pzm-play-button>', () => {
 	test('binds once after a disconnect and a connect', async () => {
 		const { fake, part, root, store } = mount('pzm-play-button');
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onStatus('playing');
 		root.remove();
 		document.body.append(root);

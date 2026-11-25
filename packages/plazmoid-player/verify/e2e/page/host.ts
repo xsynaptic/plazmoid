@@ -2,7 +2,7 @@ import type {
 	PlaybackDiagnostic,
 	PlayerStoreApi,
 	PlayerUrls,
-	StreamResolution,
+	StreamSource,
 	Track,
 	TrackDetail,
 } from '@xsynaptic/plazmoid-core';
@@ -71,10 +71,11 @@ const unanswered = new Promise<undefined>(() => {
 
 const urls: PlayerUrls = {
 	detail: (track) => (settings.detail === 'hang' ? unanswered : Promise.resolve(detailOf(track))),
-	stream: (track) => {
+	// Counted, so a spec can tell a re-resolve from a first load
+	stream: ({ sources = [] }) => {
 		resolveCount += 1;
 
-		return Promise.resolve(resolveStream(track));
+		return Promise.resolve({ sources, status: 'ok' });
 	},
 };
 
@@ -122,19 +123,12 @@ function readChoice<Choice extends string>(
 	return choices.find((choice) => choice === value) ?? choices[0];
 }
 
-// Read off the track, since a queue restored from storage carries the URL it was saved with
-function resolveStream(track: Track): StreamResolution {
-	const url: unknown = Reflect.get(track, 'streamUrl');
-	if (typeof url !== 'string') throw new TypeError(`No stream URL for ${track.trackId}`);
+function sourcesOf(trackId: string): Array<StreamSource> {
+	const source = { type: streamTypes[settings.type], url: streamUrl(trackId) };
 
-	const source = { type: streamTypes[settings.type], url };
+	if (!settings.hasFallback) return [source];
 
-	if (!settings.hasFallback) return { sources: [source], status: 'ok' };
-
-	return {
-		sources: [{ type: unplayableType, url: refusedUrl(track.trackId) }, source],
-		status: 'ok',
-	};
+	return [{ type: unplayableType, url: refusedUrl(trackId) }, source];
 }
 
 function refusedUrl(trackId: string): string {
@@ -165,7 +159,7 @@ function writePayload(): void {
 		artwork: [{ src: `${fixtureOrigin}/audio/art.png`, type: 'image/png', width: 512 }],
 		durationMs: fixtures[trackId].durationMs,
 		releaseTitle: 'Fixtures',
-		streamUrl: streamUrl(trackId),
+		sources: sourcesOf(trackId),
 		title: fixtures[trackId].title,
 		trackId,
 	}));
@@ -178,27 +172,27 @@ function writePayload(): void {
 
 writePayload();
 
+// The store keeps only the latest; a host is sent every one, so a spec reads them all
+const diagnostics: Array<PlaybackDiagnostic> = [];
+
 startAstroPlayer(() => ({
 	load: async () => {
 		await wait(settings.bindDelay);
 
-		return { onReady: exposePlayer };
+		return {
+			onEvent: (event) => {
+				if (event.kind === 'diagnostic') diagnostics.push(event.diagnostic);
+			},
+			onReady: exposePlayer,
+		};
 	},
-	player: { labels: defaultLabels, seekSeconds },
+	player: { labels: defaultLabels },
+	seekSeconds,
 	stylesheetUrl,
 	urls: () => urls,
 }));
 
 function exposePlayer({ store, view }: AstroPlayer): void {
-	// The store keeps only the latest; a host sends every one, so a spec reads them all
-	const diagnostics: Array<PlaybackDiagnostic> = [];
-
-	store.subscribe((state, previous) => {
-		if (!state.diagnostic || state.diagnostic === previous.diagnostic) return;
-
-		diagnostics.push(state.diagnostic);
-	});
-
 	Object.defineProperty(window, 'playerPage', {
 		value: {
 			diagnostics,

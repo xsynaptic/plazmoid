@@ -22,7 +22,7 @@ function mountSlider(options: {
 	const mounted = mount('pzm-time-slider');
 	const track = sampleTrack('a', { durationMs: options.durationSeconds * 1000 });
 
-	mounted.store.getState().playTrack([track], 'a');
+	mounted.store.getState().playQueue([track], 'a');
 	landDetail(mounted.store, 'a', {
 		waveform,
 		...(options.cuePoints === undefined ? {} : { cuePoints: options.cuePoints }),
@@ -254,7 +254,7 @@ describe('<pzm-time-slider>', () => {
 	test('clears the last peaks on the same strip for a track measured without them', () => {
 		const { part, store, strip } = mountSlider({ currentTimeSeconds: 0, durationSeconds: 200 });
 
-		store.getState().playTrack([sampleTrack('b', { durationMs: 200_000 })], 'b');
+		store.getState().playTrack(sampleTrack('b', { durationMs: 200_000 }));
 
 		expect(requireStrip(part)).toBe(strip);
 		expect(strip.peaks).toBeUndefined();

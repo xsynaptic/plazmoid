@@ -12,11 +12,6 @@ const store = createPlayerStore();
 store.getState().configure({
 	urls: {
 		detail: (track) => fetchDetail(track),
-		stream: (track) =>
-			Promise.resolve({
-				sources: [{ type: 'audio/mp4; codecs="Opus"', url: streamUrlOf(track) }],
-				status: 'ok',
-			}),
 	},
 });
 
@@ -24,9 +19,11 @@ bindPageControls(store, document);
 bindMediaSession(store);
 ```
 
-`createPlayerStore` returns a zustand store and restores any saved queue, paused where the listener left off. Read it with `getState()` and `subscribe()`, and change playback through its actions. If you mount the interface, `createPlayer` calls `configure` for you. A second player on the same page should pass `storage: createMemoryStorage()`, so it doesn't show or overwrite the listener's queue.
+`createPlayerStore` returns a zustand store and restores any saved queue, paused where the listener left off. Read it with `getState()` and `subscribe()`, and change playback through its actions. A second player on the same page should pass `storage: createMemoryStorage()`, so it doesn't show or overwrite the listener's queue.
 
-`stream` returns sources in order of preference, and the player loads the first one the browser can play. `detail` is optional and returns a track's cue points and waveform. Any extra fields you put on a track are kept, through storage too, and come back to both.
+A track lists its audio in `sources`, in order of preference, and the player loads the first one the browser can play. Nothing plays until `configure` sets `urls`, even to `{}`. `urls.stream` resolves the sources at play time instead, for a URL that has to be signed; `urls.detail` returns a track's cue points and waveform. Extra fields on a track are kept, through storage too, and passed back to both.
+
+`bindPlaybackEvents(store, listener)` reports diagnostics and failures, for analytics.
 
 The media element is never added to the document, and it requests audio with `crossOrigin = 'anonymous'`, so the server hosting your audio needs to send CORS headers.
 

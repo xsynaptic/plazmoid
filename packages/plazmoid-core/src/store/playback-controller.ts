@@ -6,6 +6,7 @@ import type {
 	EngineDiagnostic,
 	PlaybackErrorStage,
 	PlayerStatus,
+	PlayerUrls,
 	QueuedTrack,
 	StreamResolution,
 } from '#types.ts';
@@ -15,8 +16,14 @@ import { toDurationSeconds } from '#queue/queue.ts';
 import { pickSource } from '#store/pick-source.ts';
 import { isAwaitingPlayback, loadedTrack } from '#store/selectors.ts';
 
+export type TerminalStatus = 'capped' | 'error' | 'unplayable';
+
 // Nothing worth resuming stays in the engine after any of these
-const terminalStatuses: ReadonlySet<PlayerStatus> = new Set(['capped', 'error', 'unplayable']);
+const terminalStatuses: ReadonlySet<PlayerStatus> = new Set<TerminalStatus>([
+	'capped',
+	'error',
+	'unplayable',
+]);
 
 const unplayableState = { isPaused: true, status: 'unplayable' } satisfies Partial<PlayerStore>;
 
@@ -141,7 +148,7 @@ export function createPlaybackController(
 				fail('resolve');
 			},
 			readPosition: () => get().currentTimeSeconds,
-			stream: () => urls.stream(track),
+			stream: () => resolveStream(urls, track),
 		});
 	}
 
@@ -242,6 +249,10 @@ function heldTime(
 	return engine?.currentTime();
 }
 
+export function isTerminalStatus(status: PlayerStatus): status is TerminalStatus {
+	return terminalStatuses.has(status);
+}
+
 function isSwitch(loadedQueueId: string | undefined, queueId: string): boolean {
 	return loadedQueueId !== undefined && loadedQueueId !== queueId;
 }
@@ -286,7 +297,7 @@ function pressOutcome(state: PlayerStore, loadedQueueId: string | undefined): Pr
 	if (isAwaitingPlayback(state)) return 'ignore';
 
 	// A restored or stopped queue is positioned with nothing in the engine, so the press loads it where it stands
-	if (terminalStatuses.has(state.status) || loadedTrack(state)?.queueId !== loadedQueueId) {
+	if (isTerminalStatus(state.status) || loadedTrack(state)?.queueId !== loadedQueueId) {
 		return { index: state.currentIndex, resumeAtSeconds: state.currentTimeSeconds };
 	}
 
@@ -344,6 +355,12 @@ async function streamIntoEngine({
 
 		onFail();
 	}
+}
+
+function resolveStream(urls: PlayerUrls, track: QueuedTrack): Promise<StreamResolution> {
+	if (urls.stream) return urls.stream(track);
+
+	return Promise.resolve({ sources: track.sources ?? [], status: 'ok' });
 }
 
 function syncLevel(

@@ -9,6 +9,8 @@ export type { ControlPress, PageControls } from '#page-controls.ts';
 export { cueIndexAt } from '#queue/cue-points.ts';
 export { toDurationSeconds } from '#queue/queue.ts';
 export { canMove, movedIndex } from '#queue/reorder.ts';
+export { bindPlaybackEvents } from '#store/playback-events.ts';
+export type { PlaybackEvent } from '#store/playback-events.ts';
 export { createPlayerStore } from '#store/player-store.ts';
 export type { PlayerStore, PlayerStoreApi, PlayerStoreOptions } from '#store/player-store.ts';
 export {

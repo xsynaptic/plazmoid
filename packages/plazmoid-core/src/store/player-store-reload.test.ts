@@ -43,6 +43,27 @@ const listenerSteps = fc.array(
 	{ maxLength: 14, minLength: 1, size: 'max' },
 );
 
+// Mirrors the page controls, which own the rule that an empty queue takes the whole release
+function pressTrack(
+	state: PlayerStore,
+	{ kind, pick, trackIds }: Extract<ListenerStep, { pick: number }>,
+): void {
+	const trackId = trackIds[pick % trackIds.length];
+	if (trackId === undefined) return;
+
+	if (kind === 'queue-track') {
+		state.queueTracks([makeTrack(trackId)]);
+		return;
+	}
+
+	if (state.queue.length === 0) {
+		state.playQueue(trackIds.map(makeTrack), trackId);
+		return;
+	}
+
+	state.playTrack(makeTrack(trackId));
+}
+
 function takeStep(store: ReturnType<typeof createWritablePlayerStore>, step: ListenerStep): void {
 	const state = store.getState();
 	const length = Math.max(1, state.queue.length);
@@ -68,13 +89,7 @@ function takeStep(store: ReturnType<typeof createWritablePlayerStore>, step: Lis
 		}
 		case 'play-track':
 		case 'queue-track': {
-			const release = step.trackIds.map(makeTrack);
-			const trackId = step.trackIds[step.pick % step.trackIds.length];
-			if (trackId === undefined) return;
-
-			const action = step.kind === 'play-track' ? state.playTrack : state.queueTrack;
-
-			action(release, trackId);
+			pressTrack(state, step);
 			return;
 		}
 		case 'queue-tracks': {

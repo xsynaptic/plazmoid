@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
 	configured,
 	fake,
+	makeTrack,
 	pendingResolver,
 	release,
 	resetEngine,
@@ -15,7 +16,7 @@ describe('play intent', () => {
 	test('a pause while the stream resolves hands the engine its source without playing it', async () => {
 		const { answer, store } = pendingResolver();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		expect(store.getState().isPaused).toBe(false);
 
 		store.getState().pause();
@@ -34,7 +35,7 @@ describe('play intent', () => {
 	test('a press during a load cancels it, and a second press plays once the source lands', async () => {
 		const { answer, store } = pendingResolver();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().togglePaused();
 
 		expect(fake.engine.pause).toHaveBeenCalledOnce();
@@ -68,14 +69,14 @@ describe('play intent', () => {
 	test('switching tracks silences the old one before the next resolves', async () => {
 		const { answer, store } = pendingResolver();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		answer('a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
 		fake.callbacks.current?.onStatus('playing');
 
-		store.getState().playTrack(release, 'b');
+		store.getState().playTrack(makeTrack('b'));
 
 		expect(fake.engine.reset).toHaveBeenCalledOnce();
 		expect(fake.engine.load).toHaveBeenCalledTimes(1);
@@ -85,7 +86,7 @@ describe('play intent', () => {
 	test('a pause from outside during a stall lets the lock screen resume in one press', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledOnce();
 		});
@@ -105,7 +106,7 @@ describe('play intent', () => {
 	test('play never pauses a load already on its way', () => {
 		const { store } = pendingResolver();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		store.getState().play();
 
 		expect(fake.engine.pause).not.toHaveBeenCalled();
@@ -115,7 +116,7 @@ describe('play intent', () => {
 	test('a failure long into playback retries where playback stood', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -134,7 +135,7 @@ describe('play intent', () => {
 	test('a failure while paused retries without starting playback', async () => {
 		const store = configured();
 
-		store.getState().playTrack(release, 'a');
+		store.getState().playQueue(release, 'a');
 		await vi.waitFor(() => {
 			expect(fake.engine.load).toHaveBeenCalledTimes(1);
 		});
@@ -169,7 +170,7 @@ describe('play intent', () => {
 				return Promise.resolve();
 			});
 
-			store.getState().playTrack(release, 'a');
+			store.getState().playQueue(release, 'a');
 			await vi.waitFor(() => {
 				expect(store.getState().status).toBe(status);
 			});

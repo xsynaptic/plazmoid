@@ -1,4 +1,4 @@
-import type { PlayerStoreApi, PlayerUrls } from '@xsynaptic/plazmoid-core';
+import type { PlayerStoreApi } from '@xsynaptic/plazmoid-core';
 
 import type { PlayerRoot } from '#elements/player-root.ts';
 import type { PlayerLabels } from '#types.ts';
@@ -12,9 +12,7 @@ export interface PlayerOptions {
 	isPanelEnabled?: boolean;
 	isScopeEnabled?: boolean;
 	labels: PlayerLabels;
-	seekSeconds?: number;
 	store: PlayerStoreApi;
-	urls: PlayerUrls;
 	view: ViewStoreApi;
 }
 
@@ -24,9 +22,7 @@ export function createPlayer({
 	isPanelEnabled,
 	isScopeEnabled,
 	labels,
-	seekSeconds,
 	store,
-	urls,
 	view,
 }: PlayerOptions): PlayerRoot {
 	definePlayerElements();
@@ -40,7 +36,6 @@ export function createPlayer({
 	if (isOverlayEnabled !== undefined) root.isOverlayEnabled = isOverlayEnabled;
 	if (isPanelEnabled !== undefined) root.isPanelEnabled = isPanelEnabled;
 	if (isScopeEnabled !== undefined) root.isScopeEnabled = isScopeEnabled;
-	store.getState().configure({ seekSeconds, urls });
 	root.append(document.createElement('pzm-bar'));
 
 	return root;

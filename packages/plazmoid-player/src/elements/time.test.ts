@@ -16,7 +16,7 @@ describe('<pzm-time>', () => {
 		expect(clock.textContent).toBe('--:--');
 		expect(clock.hasAttribute('disabled')).toBe(true);
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onTime(64);
 
 		expect(clock.textContent).toBe('--:--');
@@ -30,7 +30,7 @@ describe('<pzm-time>', () => {
 	test('flips between elapsed and remaining', () => {
 		const { fake, part, store } = mount('pzm-time');
 
-		store.getState().playTrack([sampleTrack('a', { durationMs: 180_000 })], 'a');
+		store.getState().playQueue([sampleTrack('a', { durationMs: 180_000 })], 'a');
 		fake.callbacks.current?.onTime(64);
 
 		const clock = getByRole(part, 'button', { name: defaultLabels.toggleTimeMode });

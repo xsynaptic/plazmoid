@@ -31,11 +31,9 @@ export interface PlayerActions {
 	play: () => void;
 	playAt: (index: number) => void;
 	playQueue: (tracks: ReadonlyArray<Track>, startTrackId?: string) => void;
-	// Empty queue loads the whole release at the clicked track; a running queue appends that track and jumps to it
-	playTrack: (releaseTracks: ReadonlyArray<Track>, trackId: string) => void;
+	// Jumps to the track when its id is queued, and otherwise appends it and jumps
+	playTrack: (track: Track) => void;
 	previous: () => void;
-	// Only that track, even onto an empty queue, so the bar shows what was pressed
-	queueTrack: (releaseTracks: ReadonlyArray<Track>, trackId: string) => void;
 	queueTracks: (tracks: ReadonlyArray<Track>) => void;
 	// Swaps in the fresh copy of every queued track it is handed, so a queue restored from an older build picks up new fields
 	refreshQueue: (tracks: ReadonlyArray<Track>) => void;

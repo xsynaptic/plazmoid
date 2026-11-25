@@ -21,40 +21,14 @@ interface OrderedQueue {
 	queue: Array<QueuedTrack>;
 }
 
-// Tracks arrive stamped, so identity is assigned once at the edge rather than by every transition
-export function appendedQueue(
+export function playedTrack(
 	state: QueueState,
-	tracks: ReadonlyArray<QueuedTrack>,
-	trackId?: string,
-): undefined | { loadIndex: number; state: QueueState } {
-	if (tracks.length === 0) return undefined;
-
-	if (state.queue.length === 0) {
-		const startIndex = trackId === undefined ? 0 : indexOfTrack(tracks, trackId);
-		if (startIndex === undefined) return undefined;
-
-		const queue = [...tracks];
-
-		return {
-			loadIndex: startIndex,
-			state: ordered({
-				currentIndex: state.currentIndex,
-				isShuffling: state.isShuffling,
-				orderAround: startIndex,
-				queue,
-			}),
-		};
-	}
-
-	if (trackId === undefined) return appended(state, tracks);
-
-	const queued = indexOfTrack(state.queue, trackId);
+	track: QueuedTrack,
+): { loadIndex: number; state: QueueState } {
+	const queued = indexOfTrack(state.queue, track.trackId);
 	if (queued !== undefined) return { loadIndex: queued, state };
 
-	const found = tracks.find((track) => track.trackId === trackId);
-	if (!found) return undefined;
-
-	return appended(state, [found]);
+	return appended(state, [track]);
 }
 
 export function createQueueIds(): NextQueueId {
@@ -148,6 +122,28 @@ export function shuffledQueue(state: QueueState, isShuffling: boolean): QueueSta
 		orderAround: state.currentIndex,
 		queue: state.queue,
 	});
+}
+
+// Tracks arrive stamped, so identity is assigned once at the edge rather than by every transition
+export function startedQueue(
+	tracks: ReadonlyArray<QueuedTrack>,
+	startTrackId: string | undefined,
+	isShuffling: boolean,
+): undefined | { loadIndex: number; state: QueueState } {
+	if (tracks.length === 0) return undefined;
+
+	const startIndex = startTrackId === undefined ? 0 : indexOfTrack(tracks, startTrackId);
+	if (startIndex === undefined) return undefined;
+
+	return {
+		loadIndex: startIndex,
+		state: ordered({
+			currentIndex: undefined,
+			isShuffling,
+			orderAround: startIndex,
+			queue: [...tracks],
+		}),
+	};
 }
 
 export function stampQueue(tracks: ReadonlyArray<Track>, nextId: NextQueueId): Array<QueuedTrack> {

@@ -11,6 +11,7 @@ const trackChecks: FieldChecks = {
 	// `Intl.DurationFormat` throws past the safe-integer range
 	durationMs: (value) => isNonNegativeNumber(value) && value <= Number.MAX_SAFE_INTEGER,
 	releaseHref: (value) => typeof value === 'string',
+	sources: (value) => isArrayOf(value, isStreamSource),
 };
 
 const bandsChecks = {
@@ -100,6 +101,14 @@ function isDetail(value: unknown): value is TrackDetail {
 
 function isFiniteNumber(value: unknown): value is number {
 	return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isStreamSource(value: unknown): boolean {
+	if (!isRecord(value)) return false;
+
+	return (
+		typeof value.url === 'string' && (value.type === undefined || typeof value.type === 'string')
+	);
 }
 
 function isTrack(value: unknown): value is Track {

@@ -14,7 +14,7 @@ function mountPlaying(width: number) {
 
 	const mounted = mount('pzm-scope');
 
-	mounted.store.getState().playTrack([sampleTrack('a')], 'a');
+	mounted.store.getState().playQueue([sampleTrack('a')], 'a');
 
 	return mounted;
 }

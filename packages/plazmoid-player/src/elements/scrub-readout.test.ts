@@ -9,7 +9,7 @@ afterEach(() => {
 function mountReadout() {
 	const mounted = mount('pzm-scrub-readout');
 
-	mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
+	mounted.store.getState().playQueue([sampleTrack('a', { durationMs: 200_000 })], 'a');
 	landDetail(mounted.store, 'a', {
 		cuePoints: [
 			{ artistLine: 'Night Ferry', startSeconds: 50, title: 'Aurora' },

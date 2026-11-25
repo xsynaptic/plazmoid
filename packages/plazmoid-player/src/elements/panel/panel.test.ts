@@ -14,7 +14,7 @@ function mountPanel() {
 
 	mounted.store
 		.getState()
-		.playTrack(
+		.playQueue(
 			[sampleTrack('a', { durationMs: 200_000 }), sampleTrack('b', { durationMs: 200_000 })],
 			'a',
 		);
@@ -86,7 +86,7 @@ describe('<pzm-panel>', () => {
 		const { urls } = stubWavedataFetch(offline);
 		const mounted = mount('pzm-panel');
 
-		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a', { durationMs: 200_000 })], 'a');
 		landDetail(mounted.store, 'a', {
 			waveform: sampleWaveform('a', { formatVersion: formatVersion + 1 }),
 		});
@@ -103,7 +103,7 @@ describe('<pzm-panel>', () => {
 		const mounted = mount('pzm-panel');
 		const { url: _url, ...overviewOnly } = sampleWaveform('a');
 
-		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a', { durationMs: 200_000 })], 'a');
 		landDetail(mounted.store, 'a', { waveform: overviewOnly });
 
 		const waveform = await openPanel(mounted);
@@ -167,7 +167,7 @@ describe('<pzm-panel>', () => {
 
 		const mounted = mount('pzm-panel');
 
-		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 200_000 })], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a', { durationMs: 200_000 })], 'a');
 		landDetail(mounted.store, 'a', {
 			waveform: sampleWaveform('tinted', {
 				bands: { medians: [180, 140, 100] },

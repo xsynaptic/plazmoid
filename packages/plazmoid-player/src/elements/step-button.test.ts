@@ -12,7 +12,7 @@ describe('<pzm-step-button>', () => {
 	test('keeps focus on next once its own press leaves nothing after the current track', () => {
 		const { part, store } = mount('pzm-step-button', { attributes: { direction: 'next' } });
 
-		store.getState().playTrack([sampleTrack('a'), sampleTrack('b')], 'a');
+		store.getState().playQueue([sampleTrack('a'), sampleTrack('b')], 'a');
 
 		const next = getByRole(part, 'button', { name: defaultLabels.next });
 

@@ -29,7 +29,7 @@ describe('<pzm-progress>', () => {
 
 		expect(inertness()).toEqual([true, 'true']);
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onTime(45);
 
 		expect(inertness()).toEqual([true, 'true']);
@@ -48,7 +48,7 @@ describe('<pzm-progress>', () => {
 	test('seeks once to where the slider commits', () => {
 		const { fake, seeks, slider, store } = mountStrip();
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onDuration(180);
 
 		slider.value = 135;
@@ -64,7 +64,7 @@ describe('<pzm-progress>', () => {
 	test('speaks the position against the duration', () => {
 		const { fake, slider, store } = mountStrip();
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onDuration(180);
 
 		expect(slider.formatSpokenValue?.(45)).toBe('45 seconds of 3 minutes');
@@ -81,7 +81,7 @@ describe('<pzm-progress>', () => {
 			start: () => 0,
 		}));
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onDuration(180);
 
 		expect(slider.buffered).toEqual([[0, 30]]);
@@ -103,7 +103,7 @@ describe('<pzm-progress>', () => {
 			start: () => 0,
 		}));
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 		fake.callbacks.current?.onDuration(180);
 
 		rangeCount = 0;

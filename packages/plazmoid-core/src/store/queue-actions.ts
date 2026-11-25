@@ -7,15 +7,16 @@ import type { PlayerActions, PlayerStore } from '#store/player-types.ts';
 import type { Track } from '#types.ts';
 
 import {
-	appendedQueue,
 	createQueueIds,
 	loadedQueue,
 	movedTrack,
+	playedTrack,
 	queuedTracks,
 	refreshedQueue,
 	removedAt,
 	shuffledQueue,
 	stampQueue,
+	startedQueue,
 } from '#queue/queue-state.ts';
 import { toDurationSeconds } from '#queue/queue.ts';
 import { canMove } from '#queue/reorder.ts';
@@ -27,7 +28,6 @@ type QueueActions = Pick<
 	| 'moveTrack'
 	| 'playQueue'
 	| 'playTrack'
-	| 'queueTrack'
 	| 'queueTracks'
 	| 'refreshQueue'
 	| 'removeAt'
@@ -57,12 +57,9 @@ export function createQueueActions({
 		return stampQueue(tracks, nextQueueId);
 	}
 
-	function enqueue(tracks: ReadonlyArray<Track>, trackId?: string): void {
-		const appended = appendedQueue(queueState(), stamped(tracks), trackId);
-		if (!appended) return;
-
-		set(appended.state);
-		get().playAt(appended.loadIndex);
+	function playFrom({ loadIndex, state }: { loadIndex: number; state: QueueState }): void {
+		set(state);
+		get().playAt(loadIndex);
 	}
 
 	return {
@@ -108,25 +105,17 @@ export function createQueueActions({
 			set(movedTrack(state, from, to));
 		},
 
+		// Worked out before the clear, so a start id the tracks lack leaves the running queue alone
 		playQueue: (tracks, startTrackId) => {
-			if (tracks.length === 0) return;
-			if (startTrackId !== undefined && tracks.every((track) => track.trackId !== startTrackId)) {
-				return;
-			}
+			const started = startedQueue(stamped(tracks), startTrackId, get().isShuffling);
+			if (!started) return;
 
 			get().clearQueue();
-			enqueue(tracks, startTrackId);
+			playFrom(started);
 		},
 
-		playTrack: (releaseTracks, trackId) => {
-			enqueue(releaseTracks, trackId);
-		},
-
-		queueTrack: (releaseTracks, trackId) => {
-			const track = releaseTracks.find((releaseTrack) => releaseTrack.trackId === trackId);
-			if (!track) return;
-
-			get().queueTracks([track]);
+		playTrack: (track) => {
+			playFrom(playedTrack(queueState(), { ...track, queueId: nextQueueId() }));
 		},
 
 		queueTracks: (tracks) => {

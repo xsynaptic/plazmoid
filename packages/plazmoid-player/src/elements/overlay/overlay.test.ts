@@ -122,7 +122,7 @@ describe('<pzm-overlay>', () => {
 		const mounted = mountOverlay();
 
 		mounted.root.append(document.createElement('pzm-panel'));
-		mounted.store.getState().playTrack([sampleTrack('a')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a')], 'a');
 		mounted.view.getState().setPanelOpen(true);
 		await openOverlay(mounted);
 
@@ -165,7 +165,7 @@ describe('<pzm-overlay>', () => {
 	test('seeks from a cue in the Tracklist and marks the current one', async () => {
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a', { durationMs: 180_000 })], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a', { durationMs: 180_000 })], 'a');
 		landDetail(mounted.store, 'a', { cuePoints });
 		await openOverlay(mounted);
 
@@ -189,7 +189,7 @@ describe('<pzm-overlay>', () => {
 	test('holds the Tracklist tab disabled for a track without cue points', async () => {
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a'), sampleTrack('b')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a'), sampleTrack('b')], 'a');
 		await openOverlay(mounted);
 
 		const queue = getByRole(mounted.dialog, 'tab', { name: defaultLabels.queue });
@@ -216,7 +216,7 @@ describe('the overlay tabs', () => {
 	test('move with the arrow keys, Home and End', async () => {
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a')], 'a');
 		landDetail(mounted.store, 'a', { cuePoints });
 		await openOverlay(mounted);
 
@@ -246,7 +246,7 @@ describe('the overlay tabs', () => {
 	test('carry Shuffle and Clear in their row only while the Queue shows', async () => {
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a')], 'a');
 		landDetail(mounted.store, 'a', { cuePoints });
 		await openOverlay(mounted);
 
@@ -260,7 +260,7 @@ describe('the overlay tabs', () => {
 	test('keep focus when the Tracklist goes with a focused cue', async () => {
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a'), sampleTrack('b')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a'), sampleTrack('b')], 'a');
 		landDetail(mounted.store, 'a', { cuePoints });
 		await openOverlay(mounted);
 		getByRole(mounted.dialog, 'button', { name: /Middle/ }).focus();
@@ -280,7 +280,7 @@ describe('the overlay sheet', () => {
 
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a')], 'a');
 		landDetail(mounted.store, 'a', { cuePoints });
 		await openOverlay(mounted);
 
@@ -312,7 +312,7 @@ describe('the overlay sheet', () => {
 
 		const mounted = mountOverlay();
 
-		mounted.store.getState().playTrack([sampleTrack('a')], 'a');
+		mounted.store.getState().playQueue([sampleTrack('a')], 'a');
 		landDetail(mounted.store, 'a', { cuePoints });
 		await openOverlay(mounted);
 

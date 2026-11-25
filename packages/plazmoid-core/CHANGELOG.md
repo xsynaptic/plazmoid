@@ -1,5 +1,11 @@
 # @xsynaptic/plazmoid-core
 
+## 0.4.0
+
+### Minor Changes
+
+- Tracks carry their own `sources`, and `PlayerUrls.stream` is optional. `playTrack` takes one track and `queueTrack` is gone. Adds `bindPlaybackEvents`.
+
 ## 0.3.1
 
 ### Patch Changes

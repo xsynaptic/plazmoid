@@ -11,11 +11,11 @@ describe('<pzm-title>', () => {
 	test('links the title to its release, and renders it as text without one', () => {
 		const { part, store } = mount('pzm-title');
 
-		store.getState().playTrack([sampleTrack('a', { releaseHref: '/releases/a' })], 'a');
+		store.getState().playQueue([sampleTrack('a', { releaseHref: '/releases/a' })], 'a');
 
 		expect(getByRole(part, 'link', { name: 'Mix a' }).getAttribute('href')).toBe('/releases/a');
 
-		store.getState().playTrack([sampleTrack('b')], 'b');
+		store.getState().playTrack(sampleTrack('b'));
 
 		expect(queryByRole(part, 'link')).toBeNull();
 		expect(getByText(part, 'Mix b').closest('.pzm-track-title')?.localName).toBe('span');

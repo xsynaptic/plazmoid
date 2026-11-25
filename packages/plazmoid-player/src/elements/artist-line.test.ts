@@ -12,7 +12,7 @@ describe('<pzm-artist-line>', () => {
 
 		expect(part.hidden).toBe(true);
 
-		store.getState().playTrack([sampleTrack('a')], 'a');
+		store.getState().playQueue([sampleTrack('a')], 'a');
 
 		expect(part.hidden).toBe(false);
 		expect(part.textContent).toContain('Forest Signal');
