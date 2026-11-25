@@ -68,7 +68,6 @@ const resolutions = {
 	reject: () => Promise.reject(new Error('The resolver is down')),
 } satisfies Record<string, (url: string) => Promise<StreamResolution>>;
 
-// What the real engine does with its element, from `audio-engine.ts` and the measured facts in `reference/player.md`
 const stepActions = {
 	clear: ({ store }) => {
 		store.getState().clearQueue();
@@ -198,6 +197,7 @@ function queueIdOf(url: string | undefined): string | undefined {
 	return url?.split('/').at(-2);
 }
 
+// Mirrors `audio-engine.ts` by hand, so a change to its load, play, pause or reset lands here too
 function createElementDouble(element: ElementDouble) {
 	function emit(): AudioEngineCallbacks {
 		if (!element.callbacks) throw new Error('The engine reported before it was created');
@@ -291,7 +291,6 @@ function openSession(
 		urls: {
 			stream: (track) => {
 				session.calls += 1;
-				// A load raised by an element failure is the re-resolve; any other starts a fresh chain
 				session.retriesInChain =
 					session.step?.kind === 'element-fails' ? session.retriesInChain + 1 : 0;
 				if (session.retriesInChain > 0) tally.retries += 1;
