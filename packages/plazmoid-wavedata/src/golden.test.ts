@@ -114,12 +114,11 @@ test.for(modes)(
 	},
 );
 
-test('the range in sample units keeps the quiet end below the loud end', async () => {
+test('the range in sample units is the amplitude of each end, with full scale at 128', async () => {
 	const { golden } = await readGolden();
 	const [quiet, loud] = rmsRangeInSampleUnits(golden.average.facts);
 
-	// Level 82 is -40.7 dB, level 255 is full scale
-	expect(quiet).toBeCloseTo(128 * 10 ** (-40.7 / 20), 1);
+	expect(quiet).toBeCloseTo(128 * 10 ** (((82 / 255 - 1) * 60) / 20), 4);
 	expect(loud).toBe(128);
 });
 

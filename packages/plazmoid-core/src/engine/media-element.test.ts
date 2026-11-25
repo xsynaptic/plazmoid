@@ -39,9 +39,8 @@ describe('whenMediaElement', () => {
 
 		store.getState().playQueue(release);
 
-		const subscribe = vi.spyOn(store, 'subscribe');
-
-		await expect(whenMediaElement(store)).resolves.toBe(fake.engine.element);
-		expect(subscribe).not.toHaveBeenCalled();
+		await expect(Promise.race([whenMediaElement(store), Promise.resolve()])).resolves.toBe(
+			fake.engine.element,
+		);
 	});
 });

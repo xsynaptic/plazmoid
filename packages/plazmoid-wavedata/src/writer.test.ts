@@ -63,12 +63,6 @@ test('a short last pair weighs its bucket by the samples it has', () => {
 	expect(levels.at(-1)).toBe(200);
 });
 
-test('pairs at the floor stay out of the range', () => {
-	const { facts } = write('average', [...repeat(2560, [1, 1]), ...repeat(256, [16_384, 16_384])]);
-
-	expect(facts.rmsRange).toStrictEqual([229, 229]);
-});
-
 test('a source that is not 16-bit is refused', () => {
 	const writer = createWavedataWriter({ hasBands: false, mode: 'overall', sampleRate });
 

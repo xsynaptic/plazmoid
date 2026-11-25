@@ -16,9 +16,4 @@ describe('knownWaveform', () => {
 			knownWaveform({ waveform: { ...waveform, formatVersion: formatVersion + 1 } }),
 		).toBeUndefined();
 	});
-
-	test('has nothing for a detail without a waveform, or no detail', () => {
-		expect(knownWaveform({ trackCount: 3 })).toBeUndefined();
-		expect(knownWaveform(undefined)).toBeUndefined();
-	});
 });

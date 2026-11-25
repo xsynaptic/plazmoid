@@ -121,8 +121,12 @@ function toStored(fields: StoredFields): Record<string, unknown> {
 	);
 }
 
-function writtenKeys(fields: StoredFields): Array<string> {
-	return Object.entries(fields).flatMap(([key, field]) => (field?.isWritten ? [key] : []));
+function writtenFields(fields: StoredFields): Record<string, unknown> {
+	return Object.fromEntries(
+		Object.entries(fields).flatMap(([key, field]) =>
+			field?.isWritten ? [[key, field.value]] : [],
+		),
+	);
 }
 
 function restore(
@@ -184,8 +188,8 @@ describe('restoring a stored queue', () => {
 
 			expect(track?.trackId).toBe('a');
 
-			for (const key of writtenKeys(trackFields)) expect(track).toHaveProperty(key);
-			for (const key of writtenKeys(detailFields)) expect(detail).toHaveProperty(key);
+			expect(track).toMatchObject(writtenFields(trackFields));
+			expect(detail).toMatchObject(writtenFields(detailFields));
 		},
 	);
 

@@ -1,8 +1,12 @@
 import { createMemoryStorage } from '@xsynaptic/plazmoid-core';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 
 import { panelOpenStorageKey, panelZoomStorageKey, timeModeStorageKey } from '#constants.ts';
 import { createViewStore } from '#view/view-store.ts';
+
+afterEach(() => {
+	localStorage.clear();
+});
 
 describe('time mode', () => {
 	test('persists the choice and restores it on reload', () => {
@@ -13,8 +17,6 @@ describe('time mode', () => {
 		const restored = createViewStore();
 
 		expect(restored.getState().timeMode).toBe('remaining');
-
-		localStorage.removeItem(timeModeStorageKey);
 	});
 
 	test('ignores a stored value that is not a mode', () => {
@@ -23,8 +25,6 @@ describe('time mode', () => {
 		const store = createViewStore();
 
 		expect(store.getState().timeMode).toBe('elapsed');
-
-		localStorage.removeItem(timeModeStorageKey);
 	});
 });
 
@@ -37,8 +37,6 @@ describe('panel state', () => {
 		const restored = createViewStore();
 
 		expect(restored.getState().isPanelOpen).toBe(true);
-
-		localStorage.removeItem(panelOpenStorageKey);
 	});
 
 	test('persists the zoom step and restores it on reload', () => {
@@ -49,8 +47,6 @@ describe('panel state', () => {
 		const restored = createViewStore();
 
 		expect(restored.getState().panelPxPerSecond).toBe(105);
-
-		localStorage.removeItem(panelZoomStorageKey);
 	});
 
 	test('persists a zoom between two steps and restores it on reload', () => {
@@ -58,16 +54,12 @@ describe('panel state', () => {
 
 		expect(localStorage.getItem(panelZoomStorageKey)).toBe('83.25');
 		expect(createViewStore().getState().panelPxPerSecond).toBe(83.25);
-
-		localStorage.removeItem(panelZoomStorageKey);
 	});
 
 	test.each(['19', '241', 'wide'])('ignores a stored zoom of %s, outside the ladder', (stored) => {
 		localStorage.setItem(panelZoomStorageKey, stored);
 
 		expect(createViewStore().getState().panelPxPerSecond).toBe(70);
-
-		localStorage.removeItem(panelZoomStorageKey);
 	});
 
 	test('steps from between two steps to the nearest one in that direction', () => {
@@ -84,8 +76,6 @@ describe('panel state', () => {
 		store.getState().setPanelZoom(239);
 		store.getState().zoomPanel(1);
 		expect(store.getState().panelPxPerSecond).toBe(240);
-
-		localStorage.removeItem(panelZoomStorageKey);
 	});
 });
 

@@ -83,10 +83,10 @@ function withQueue(tracks: ReadonlyArray<Track>, currentIndex: number | undefine
 
 describe('loadedQueue', () => {
 	test('replaces the queue and loads nothing out of it', () => {
-		const state = loadedQueue(emptyState(), stamp(release));
+		const state = loadedQueue(withQueue(release, 1), stamp([makeTrack('x'), makeTrack('y')]));
 
-		expect(queueTrackIds(state.queue)).toStrictEqual(['a', 'b', 'c']);
-		expect(state.playOrder).toStrictEqual([0, 1, 2]);
+		expect(queueTrackIds(state.queue)).toStrictEqual(['x', 'y']);
+		expect(state.playOrder).toStrictEqual([0, 1]);
 		expect(state.currentIndex).toBeUndefined();
 	});
 });
@@ -119,7 +119,7 @@ describe('playedTrack', () => {
 		const played = playedTrack(running, stampOne('c'));
 
 		expect(played.loadIndex).toBe(2);
-		expect(played.state).toBe(running);
+		expect(played.state).toStrictEqual(running);
 	});
 
 	test('appends a track not yet queued, leaving the loaded index to the caller', () => {
@@ -156,10 +156,6 @@ describe('refreshedQueue', () => {
 		expect(refreshed?.[1]).toStrictEqual({ ...fresh, queueId: queue[1]?.queueId });
 		expect(refreshed?.[0]).toBe(queue[0]);
 		expect(refreshed?.[2]).toBe(queue[2]);
-	});
-
-	test('answers nothing when the page carries the same fields', () => {
-		expect(refreshedQueue(stamp(release), release)).toBeUndefined();
 	});
 
 	test('answers nothing when the page carries the same fields in another key order', () => {
@@ -408,19 +404,21 @@ describe('queue transitions', () => {
 		(steps, seed) => {
 			vi.spyOn(Math, 'random').mockImplementation(seededRandom(seed));
 
-			let state = emptyState();
+			try {
+				let state = emptyState();
 
-			for (const step of steps) {
-				const next = queueStepActions[step.kind](state, step);
+				for (const step of steps) {
+					const next = queueStepActions[step.kind](state, step);
 
-				expect(orderViolation(next), JSON.stringify(next)).toBeUndefined();
-				expectLoadedTrackKept(state, next, step);
-				expectRunningOrderKept(state, next, step);
+					expect(orderViolation(next), JSON.stringify(next)).toBeUndefined();
+					expectLoadedTrackKept(state, next, step);
+					expectRunningOrderKept(state, next, step);
 
-				state = next;
+					state = next;
+				}
+			} finally {
+				vi.restoreAllMocks();
 			}
-
-			vi.restoreAllMocks();
 		},
 	);
 });

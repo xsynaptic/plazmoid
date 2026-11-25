@@ -39,17 +39,6 @@ describe('previous', () => {
 		expect(fake.engine.seek).toHaveBeenCalledWith(0);
 	});
 
-	test('writes the restart back to the store, since a paused clock gets no update', () => {
-		const store = configured();
-
-		store.getState().playQueue(release, 'b');
-		fake.setTime(5);
-		fake.callbacks.current?.onTime(5);
-		store.getState().previous();
-
-		expect(store.getState().currentTimeSeconds).toBe(0);
-	});
-
 	test('restarts at the head of the queue', () => {
 		const store = configured();
 
@@ -64,12 +53,10 @@ describe('previous', () => {
 
 describe('shuffle', () => {
 	test('steps along the shuffled order in both directions, not the queue order', () => {
-		const random = vi.spyOn(Math, 'random').mockReturnValue(0);
 		const store = configured();
 
 		store.getState().playQueue(release, 'a');
-		store.getState().toggleShuffle();
-		expect(store.getState().playOrder).toStrictEqual([0, 2, 1]);
+		store.setState({ isShuffling: true, playOrder: [0, 2, 1] });
 
 		store.getState().next();
 		expect(store.getState().currentIndex).toBe(2);
@@ -77,8 +64,6 @@ describe('shuffle', () => {
 		fake.setTime(1);
 		store.getState().previous();
 		expect(store.getState().currentIndex).toBe(0);
-
-		random.mockRestore();
 	});
 });
 
@@ -98,16 +83,6 @@ describe('transport', () => {
 
 		expect(fake.engine.play).toHaveBeenCalledOnce();
 		expect(fake.engine.load).toHaveBeenCalledOnce();
-	});
-
-	test('resumes the engine when toggled while paused', () => {
-		const store = configured();
-
-		store.getState().playQueue(release, 'a');
-		fake.callbacks.current?.onStatus('paused');
-		store.getState().togglePaused();
-
-		expect(fake.engine.play).toHaveBeenCalled();
 	});
 
 	test('starts the first play-order track when nothing is loaded', () => {

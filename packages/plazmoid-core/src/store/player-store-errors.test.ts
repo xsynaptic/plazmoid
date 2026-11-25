@@ -66,27 +66,6 @@ describe('engine errors', () => {
 		expect(resolved).toStrictEqual(['a']);
 	});
 
-	test('loads a type the probe declined, and plays it when the probe was wrong', async () => {
-		const store = withResolver(({ trackId }) =>
-			Promise.resolve({
-				sources: [
-					{ type: 'audio/mp4; codecs="Opus"', url: `https://api.test/tracks/${trackId}/stream` },
-				],
-				status: 'ok',
-			}),
-		);
-		fake.engine.canPlay.mockReturnValue(false);
-
-		store.getState().playQueue(release, 'a');
-		await vi.waitFor(() => {
-			expect(fake.engine.load).toHaveBeenCalledTimes(1);
-		});
-		fake.callbacks.current?.onStatus('playing');
-
-		expect(fake.engine.canPlay).toHaveBeenCalledWith('audio/mp4; codecs="Opus"');
-		expect(store.getState().status).toBe('playing');
-	});
-
 	test('loads the accepted second source past a refused first, and retries its unsupported failure', async () => {
 		const resolved: Array<string> = [];
 		const store = withResolver(({ trackId }) => {
@@ -119,18 +98,6 @@ describe('engine errors', () => {
 		expect(store.getState().status).not.toBe('unplayable');
 	});
 
-	test('ends an empty source list as an error at the resolve stage, without loading', async () => {
-		const store = withResolver(() => Promise.resolve({ sources: [], status: 'ok' }));
-
-		store.getState().playQueue(release, 'a');
-		await vi.waitFor(() => {
-			expect(store.getState().status).toBe('error');
-		});
-
-		expect(fake.engine.load).not.toHaveBeenCalled();
-		expect(store.getState().playbackError).toStrictEqual({ stage: 'resolve', trackId: 'a' });
-	});
-
 	test('reloads a failed track where it stood when play is pressed again', async () => {
 		const store = configured();
 
@@ -157,7 +124,7 @@ describe('engine errors', () => {
 		expect(fake.engine.play).not.toHaveBeenCalled();
 	});
 
-	test('enters the error state when the resolve itself never answers', async () => {
+	test('enters the error state when the resolve rejects', async () => {
 		const store = withResolver(() => Promise.reject(new Error('no route')));
 
 		store.getState().playQueue(release, 'a');

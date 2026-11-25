@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe('holdPresses', () => {
-	test('marks only the latest press, and none once released', async () => {
+	test('marks only the latest press, and none made once released', async () => {
 		document.body.innerHTML =
 			'<button data-pzm-play-track="a"></button><button data-pzm-queue-track="b"></button><button data-pzm-queue-track="c"></button>';
 

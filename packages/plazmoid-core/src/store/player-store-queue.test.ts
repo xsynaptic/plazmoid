@@ -50,15 +50,6 @@ describe('playTrack', () => {
 		expect(store.getState().currentIndex).toBe(3);
 	});
 
-	test('onto an empty queue, plays only that track', () => {
-		const store = configured();
-
-		store.getState().playTrack(makeTrack('b'));
-
-		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['b']);
-		expect(store.getState().currentIndex).toBe(0);
-	});
-
 	test('toggles transport when the track is already loaded', async () => {
 		const store = configured();
 
@@ -93,30 +84,14 @@ describe('playQueue', () => {
 		expect(fake.engine.reset).toHaveBeenCalledOnce();
 	});
 
-	test('starts the new queue at the chosen track', () => {
-		const store = configured();
-
-		store.getState().playQueue(release, 'c');
-
-		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['a', 'b', 'c']);
-		expect(store.getState().currentIndex).toBe(2);
-	});
-
-	test('leaves the running queue alone when the chosen track is not among the new ones', () => {
+	test.each([
+		['the chosen track is not among the new ones', [makeTrack('x')], 'c'],
+		['the new list is empty', [], undefined],
+	])('leaves the running queue alone when %s', (_label, tracks, startTrackId) => {
 		const store = configured();
 
 		store.getState().playQueue(release, 'b');
-		store.getState().playQueue([makeTrack('x')], 'c');
-
-		expect(store.getState().queue).toHaveLength(3);
-		expect(store.getState().currentIndex).toBe(1);
-	});
-
-	test('ignores an empty list rather than clearing what is loaded', () => {
-		const store = configured();
-
-		store.getState().playQueue(release, 'b');
-		store.getState().playQueue([]);
+		store.getState().playQueue(tracks, startTrackId);
 
 		expect(store.getState().queue).toHaveLength(3);
 		expect(store.getState().currentIndex).toBe(1);

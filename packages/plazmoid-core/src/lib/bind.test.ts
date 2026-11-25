@@ -1,9 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
+import { createStore } from 'zustand/vanilla';
 
-import { createMockEngine } from '#engine/audio-engine-mock.ts';
 import { bind } from '#lib/bind.ts';
-import { createMemoryStorage } from '#lib/storage.ts';
-import { createPlayerStore } from '#store/player-store.ts';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -12,10 +10,7 @@ afterEach(() => {
 test('a write that throws is reported and leaves later subscribers their update', () => {
 	const failure = new Error('showModal refused');
 	const reportError = vi.fn();
-	const store = createPlayerStore({
-		createEngine: createMockEngine().createEngine,
-		storage: createMemoryStorage(),
-	});
+	const store = createStore(() => ({ volume: 1 }));
 	const later = vi.fn();
 
 	vi.stubGlobal('reportError', reportError);
@@ -28,7 +23,7 @@ test('a write that throws is reported and leaves later subscribers their update'
 		new AbortController().signal,
 	);
 	store.subscribe(later);
-	store.getState().setVolume(0.5);
+	store.setState({ volume: 0.5 });
 
 	expect(reportError).toHaveBeenCalledWith(failure);
 	expect(later).toHaveBeenCalledOnce();

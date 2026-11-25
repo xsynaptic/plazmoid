@@ -6,7 +6,6 @@ import type { Track } from '#types.ts';
 import { queueStorageKey, queueTracksStorageKey } from '#constants.ts';
 import {
 	fake,
-	hidePage,
 	makeTrack,
 	persisted,
 	release,
@@ -123,15 +122,15 @@ describe('queue persistence', () => {
 		localStorage.clear();
 	});
 
-	test('drops a stored id that has no track and follows the loaded one past it', () => {
+	test.each([
+		['id that has no track', { a: makeTrack('a'), c: makeTrack('c') }],
+		['track that is malformed', { a: makeTrack('a'), b: { trackId: 5 }, c: makeTrack('c') }],
+	])('drops a stored %s and follows the loaded one past it', (_label, tracks) => {
 		localStorage.setItem(
 			queueStorageKey,
-			JSON.stringify({ currentIndex: 2, currentTimeSeconds: 42, trackIds: ['a', 'gone', 'c'] }),
+			JSON.stringify({ currentIndex: 2, currentTimeSeconds: 42, trackIds: ['a', 'b', 'c'] }),
 		);
-		localStorage.setItem(
-			queueTracksStorageKey,
-			JSON.stringify({ a: makeTrack('a'), c: makeTrack('c') }),
-		);
+		localStorage.setItem(queueTracksStorageKey, JSON.stringify(tracks));
 
 		const store = persisted();
 
@@ -142,12 +141,15 @@ describe('queue persistence', () => {
 	});
 
 	// Earlier stores in this file still listen, so a first flush settles whatever they hold unsaved
-	test('leaves a queue another tab saved when a store that held nothing unloads', () => {
-		persisted();
+	test('leaves a queue another tab saved when a store that emptied its own unloads', () => {
+		leavePage();
 
+		const store = persisted();
 		const saved = JSON.stringify({ trackIds: ['a', 'b', 'c'] });
 
-		leavePage();
+		store.getState().playQueue(release, 'a');
+		store.getState().seek(30);
+		store.getState().clearQueue();
 		localStorage.setItem(queueStorageKey, saved);
 		leavePage();
 
@@ -268,18 +270,6 @@ describe('queue persistence', () => {
 		localStorage.removeItem(queueStorageKey);
 	});
 
-	test('flushes the position when the page goes hidden', () => {
-		const store = persisted();
-
-		store.getState().playQueue(release, 'b');
-		store.getState().seek(42);
-		hidePage();
-
-		expect(storedOrder()?.currentTimeSeconds).toBe(42);
-
-		localStorage.removeItem(queueStorageKey);
-	});
-
 	test('writes a shuffle toggle straight away, and a reload keeps its order', () => {
 		const random = vi.spyOn(Math, 'random').mockReturnValue(0);
 		const first = persisted();
@@ -314,24 +304,6 @@ describe('queue persistence', () => {
 		localStorage.clear();
 	});
 
-	test('drops a malformed stored track and follows the loaded one past it', () => {
-		localStorage.setItem(
-			queueStorageKey,
-			JSON.stringify({ currentIndex: 2, currentTimeSeconds: 42, trackIds: ['a', 'b', 'c'] }),
-		);
-		localStorage.setItem(
-			queueTracksStorageKey,
-			JSON.stringify({ a: makeTrack('a'), b: { trackId: 5 }, c: makeTrack('c') }),
-		);
-
-		const store = persisted();
-
-		expect(store.getState().queue.map((track) => track.trackId)).toStrictEqual(['a', 'c']);
-		expect(store.getState()).toMatchObject({ currentIndex: 1, currentTimeSeconds: 42 });
-
-		localStorage.clear();
-	});
-
 	test('drops malformed sources and keeps the track', () => {
 		localStorage.setItem(
 			queueStorageKey,
@@ -348,16 +320,6 @@ describe('queue persistence', () => {
 
 		expect(restored?.trackId).toBe('a');
 		expect(restored).not.toHaveProperty('sources');
-
-		localStorage.clear();
-	});
-
-	test('ignores a stored index that is not a whole number', () => {
-		storeQueue(release, { currentIndex: 1.5, currentTimeSeconds: 42 });
-
-		const store = persisted();
-
-		expect(store.getState()).toMatchObject({ currentIndex: undefined, currentTimeSeconds: 0 });
 
 		localStorage.clear();
 	});

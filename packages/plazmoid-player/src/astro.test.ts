@@ -26,7 +26,10 @@ const urls: PlayerUrls = {
 	stream: () => Promise.withResolvers<StreamResolution>().promise,
 };
 
-const listeners: Array<Parameters<Document['addEventListener']>> = [];
+const listeners: Array<{
+	parameters: Parameters<EventTarget['addEventListener']>;
+	target: EventTarget;
+}> = [];
 
 function control(selector: string): HTMLElement {
 	const found = document.querySelector<HTMLElement>(selector);
@@ -96,17 +99,20 @@ beforeEach(() => {
 		throw error;
 	});
 
-	const addEventListener = document.addEventListener.bind(document);
+	// Each mounted player binds to both, and a listener left over from an earlier test reaches the next one
+	for (const target of [document, window] satisfies Array<EventTarget>) {
+		const addEventListener = target.addEventListener.bind(target);
 
-	vi.spyOn(document, 'addEventListener').mockImplementation((...parameters) => {
-		listeners.push(parameters);
-		addEventListener(...parameters);
-	});
+		vi.spyOn(target, 'addEventListener').mockImplementation((...parameters) => {
+			listeners.push({ parameters, target });
+			addEventListener(...parameters);
+		});
+	}
 });
 
 afterEach(async () => {
-	for (const [type, listener, options] of listeners.splice(0)) {
-		document.removeEventListener(type, listener, options);
+	for (const { parameters, target } of listeners.splice(0)) {
+		target.removeEventListener(...parameters);
 	}
 
 	document.head.replaceChildren();
@@ -320,22 +326,19 @@ describe('startAstroPlayer', () => {
 	test('a load that rejects is reported, and the player still mounts and binds', async () => {
 		const failure = new TypeError('Failed to fetch dynamically imported module');
 		const reportError = vi.fn();
-		const onPress = vi.fn();
 
 		vi.stubGlobal('reportError', reportError);
 		stubIdle({ isIdle: true });
 		mountPage({ hasPayload: true });
 		start({ load: () => Promise.reject(failure) });
 
-		await vi.waitFor(() => {
-			expect(document.querySelector('[data-pzm-host] > pzm-root')).not.toBeNull();
-		});
+		const root = await vi.waitFor(() => control('[data-pzm-host] > pzm-root'));
 
 		control('[data-pzm-play-track]').click();
 
 		expect(reportError).toHaveBeenCalledExactlyOnceWith(failure);
-		expect(onPress).not.toHaveBeenCalled();
 		expect(control('[data-pzm-play-track]').hasAttribute(heldPressAttribute)).toBe(false);
+		expect(root.dataset.empty).toBeUndefined();
 	});
 
 	test('an onReady that throws is reported, after the press handler is bound', async () => {

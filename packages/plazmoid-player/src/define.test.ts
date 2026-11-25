@@ -46,7 +46,8 @@ function partNameOf(path: string): string {
 	return path.slice('./define/'.length, -'.ts'.length);
 }
 
-describe('the define entries', () => {
+// The single entry needs a registry the sweep over every entry has not filled yet
+describe('the define entries', { shuffle: false }, () => {
 	test('registers a part from its own entry alone, with the control it renders', async () => {
 		const root = Object.assign(document.createElement('pzm-root'), {
 			labels: defaultLabels,
